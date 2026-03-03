@@ -153,22 +153,22 @@ def extract_session_from_headers(headers: Dict[str, str]) -> Optional[str]:
     # Try Authorization header for Bearer token
     auth_header = headers.get("authorization") or headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
-        # Extract bearer token and try to find associated session
         token = auth_header[7:]  # Remove "Bearer " prefix
+        # Intentionally ignore empty tokens - "Bearer " with no token should not
+        # create a session context (avoids hash collisions on empty string)
         if token:
-            # Look for a session that has this access token
-            # This requires scanning sessions, but bearer tokens should be unique
+            # Use thread-safe lookup to find session by access token
             store = get_oauth21_session_store()
-            for user_email, session_info in store._sessions.items():
-                if session_info.get("access_token") == token:
-                    return session_info.get("session_id") or f"bearer_{user_email}"
+            session_id = store.find_session_id_for_access_token(token)
+            if session_id:
+                return session_id
 
-        # If no session found, create a temporary session ID from token hash
-        # This allows header-based authentication to work with session context
-        import hashlib
+            # If no session found, create a temporary session ID from token hash
+            # This allows header-based authentication to work with session context
+            import hashlib
 
-        token_hash = hashlib.sha256(token.encode()).hexdigest()[:8]
-        return f"bearer_token_{token_hash}"
+            token_hash = hashlib.sha256(token.encode()).hexdigest()[:8]
+            return f"bearer_token_{token_hash}"
 
     return None
 
@@ -221,6 +221,7 @@ class OAuth21SessionStore:
         state: str,
         session_id: Optional[str] = None,
         expires_in_seconds: int = 600,
+        code_verifier: Optional[str] = None,
     ) -> None:
         """Persist an OAuth state value for later validation."""
         if not state:
@@ -236,6 +237,7 @@ class OAuth21SessionStore:
                 "session_id": session_id,
                 "expires_at": expiry,
                 "created_at": now,
+                "code_verifier": code_verifier,
             }
             logger.debug(
                 "Stored OAuth state %s (expires at %s)",
@@ -325,6 +327,32 @@ class OAuth21SessionStore:
         """
         with self._lock:
             normalized_expiry = _normalize_expiry_to_naive_utc(expiry)
+
+            # Clean up previous session mappings for this user before storing new one
+            old_session = self._sessions.get(user_email)
+            if old_session:
+                old_mcp_session_id = old_session.get("mcp_session_id")
+                old_session_id = old_session.get("session_id")
+                # Remove old MCP session mapping if it differs from new one
+                if old_mcp_session_id and old_mcp_session_id != mcp_session_id:
+                    if old_mcp_session_id in self._mcp_session_mapping:
+                        del self._mcp_session_mapping[old_mcp_session_id]
+                        logger.debug(
+                            f"Removed stale MCP session mapping: {old_mcp_session_id}"
+                        )
+                    if old_mcp_session_id in self._session_auth_binding:
+                        del self._session_auth_binding[old_mcp_session_id]
+                        logger.debug(
+                            f"Removed stale auth binding: {old_mcp_session_id}"
+                        )
+                # Remove old OAuth session binding if it differs from new one
+                if old_session_id and old_session_id != session_id:
+                    if old_session_id in self._session_auth_binding:
+                        del self._session_auth_binding[old_session_id]
+                        logger.debug(
+                            f"Removed stale OAuth session binding: {old_session_id}"
+                        )
+
             session_info = {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -570,6 +598,9 @@ class OAuth21SessionStore:
                 if not mcp_session_id:
                     logger.info(f"Removed OAuth 2.1 session for {user_email}")
 
+            # Clean up any orphaned mappings that may have accumulated
+            self._cleanup_orphaned_mappings_locked()
+
     def has_session(self, user_email: str) -> bool:
         """Check if a user has an active session."""
         with self._lock:
@@ -596,6 +627,69 @@ class OAuth21SessionStore:
                 "mcp_session_mappings": len(self._mcp_session_mapping),
                 "mcp_sessions": list(self._mcp_session_mapping.keys()),
             }
+
+    def find_session_id_for_access_token(self, token: str) -> Optional[str]:
+        """
+        Thread-safe lookup of session ID by access token.
+
+        Args:
+            token: The access token to search for
+
+        Returns:
+            Session ID if found, None otherwise
+        """
+        with self._lock:
+            for user_email, session_info in self._sessions.items():
+                if session_info.get("access_token") == token:
+                    return session_info.get("session_id") or f"bearer_{user_email}"
+            return None
+
+    def _cleanup_orphaned_mappings_locked(self) -> int:
+        """Remove orphaned mappings. Caller must hold lock."""
+        # Collect valid session IDs and mcp_session_ids from active sessions
+        valid_session_ids = set()
+        valid_mcp_session_ids = set()
+        for session_info in self._sessions.values():
+            if session_info.get("session_id"):
+                valid_session_ids.add(session_info["session_id"])
+            if session_info.get("mcp_session_id"):
+                valid_mcp_session_ids.add(session_info["mcp_session_id"])
+
+        removed = 0
+
+        # Remove orphaned MCP session mappings
+        orphaned_mcp = [
+            sid for sid in self._mcp_session_mapping if sid not in valid_mcp_session_ids
+        ]
+        for sid in orphaned_mcp:
+            del self._mcp_session_mapping[sid]
+            removed += 1
+            logger.debug(f"Removed orphaned MCP session mapping: {sid}")
+
+        # Remove orphaned auth bindings
+        valid_bindings = valid_session_ids | valid_mcp_session_ids
+        orphaned_bindings = [
+            sid for sid in self._session_auth_binding if sid not in valid_bindings
+        ]
+        for sid in orphaned_bindings:
+            del self._session_auth_binding[sid]
+            removed += 1
+            logger.debug(f"Removed orphaned auth binding: {sid}")
+
+        if removed > 0:
+            logger.info(f"Cleaned up {removed} orphaned session mappings/bindings")
+
+        return removed
+
+    def cleanup_orphaned_mappings(self) -> int:
+        """
+        Remove orphaned entries from mcp_session_mapping and session_auth_binding.
+
+        Returns:
+            Number of orphaned entries removed
+        """
+        with self._lock:
+            return self._cleanup_orphaned_mappings_locked()
 
 
 # Global instance

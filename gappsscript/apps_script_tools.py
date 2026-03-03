@@ -105,8 +105,10 @@ async def _get_script_project_impl(
     """Internal implementation for get_script_project."""
     logger.info(f"[get_script_project] Email: {user_google_email}, ID: {script_id}")
 
-    project = await asyncio.to_thread(
-        service.projects().get(scriptId=script_id).execute
+    # Get project metadata and content concurrently (independent requests)
+    project, content = await asyncio.gather(
+        asyncio.to_thread(service.projects().get(scriptId=script_id).execute),
+        asyncio.to_thread(service.projects().getContent(scriptId=script_id).execute),
     )
 
     title = project.get("title", "Untitled")
@@ -124,7 +126,7 @@ async def _get_script_project_impl(
         "Files:",
     ]
 
-    files = project.get("files", [])
+    files = content.get("files", [])
     for i, file in enumerate(files, 1):
         file_name = file.get("name", "Untitled")
         file_type = file.get("type", "Unknown")
@@ -172,11 +174,12 @@ async def _get_script_content_impl(
         f"[get_script_content] Email: {user_google_email}, ID: {script_id}, File: {file_name}"
     )
 
-    project = await asyncio.to_thread(
-        service.projects().get(scriptId=script_id).execute
+    # Must use getContent() to retrieve files, not get() which only returns metadata
+    content = await asyncio.to_thread(
+        service.projects().getContent(scriptId=script_id).execute
     )
 
-    files = project.get("files", [])
+    files = content.get("files", [])
     target_file = None
 
     for file in files:
@@ -338,7 +341,7 @@ async def _run_script_function_impl(
     user_google_email: str,
     script_id: str,
     function_name: str,
-    parameters: Optional[List[Any]] = None,
+    parameters: Optional[list[object]] = None,
     dev_mode: bool = False,
 ) -> str:
     """Internal implementation for run_script_function."""
@@ -386,7 +389,7 @@ async def run_script_function(
     user_google_email: str,
     script_id: str,
     function_name: str,
-    parameters: Optional[List[Any]] = None,
+    parameters: Optional[list[object]] = None,
     dev_mode: bool = False,
 ) -> str:
     """
@@ -461,31 +464,57 @@ async def _create_deployment_impl(
 
 
 @server.tool()
-@handle_http_errors("create_deployment", service_type="script")
+@handle_http_errors("manage_deployment", service_type="script")
 @require_google_service("script", "script_deployments")
-async def create_deployment(
+async def manage_deployment(
     service: Any,
     user_google_email: str,
+    action: str,
     script_id: str,
-    description: str,
+    deployment_id: Optional[str] = None,
+    description: Optional[str] = None,
     version_description: Optional[str] = None,
 ) -> str:
     """
-    Creates a new deployment of the script.
+    Manages Apps Script deployments. Supports creating, updating, and deleting deployments.
 
     Args:
         service: Injected Google API service client
         user_google_email: User's email address
+        action: Action to perform - "create", "update", or "delete"
         script_id: The script project ID
-        description: Deployment description
-        version_description: Optional version description
+        deployment_id: The deployment ID (required for update and delete)
+        description: Deployment description (required for create and update)
+        version_description: Optional version description (for create only)
 
     Returns:
-        str: Formatted string with deployment details
+        str: Formatted string with deployment details or confirmation
     """
-    return await _create_deployment_impl(
-        service, user_google_email, script_id, description, version_description
-    )
+    action = action.lower().strip()
+    if action == "create":
+        if description is None or description.strip() == "":
+            raise ValueError("description is required for create action")
+        return await _create_deployment_impl(
+            service, user_google_email, script_id, description, version_description
+        )
+    elif action == "update":
+        if not deployment_id:
+            raise ValueError("deployment_id is required for update action")
+        if description is None or description.strip() == "":
+            raise ValueError("description is required for update action")
+        return await _update_deployment_impl(
+            service, user_google_email, script_id, deployment_id, description
+        )
+    elif action == "delete":
+        if not deployment_id:
+            raise ValueError("deployment_id is required for delete action")
+        return await _delete_deployment_impl(
+            service, user_google_email, script_id, deployment_id
+        )
+    else:
+        raise ValueError(
+            f"Invalid action '{action}'. Must be 'create', 'update', or 'delete'."
+        )
 
 
 async def _list_deployments_impl(
@@ -575,34 +604,6 @@ async def _update_deployment_impl(
     return "\n".join(output)
 
 
-@server.tool()
-@handle_http_errors("update_deployment", service_type="script")
-@require_google_service("script", "script_deployments")
-async def update_deployment(
-    service: Any,
-    user_google_email: str,
-    script_id: str,
-    deployment_id: str,
-    description: Optional[str] = None,
-) -> str:
-    """
-    Updates an existing deployment configuration.
-
-    Args:
-        service: Injected Google API service client
-        user_google_email: User's email address
-        script_id: The script project ID
-        deployment_id: The deployment ID to update
-        description: Optional new description
-
-    Returns:
-        str: Formatted string confirming update
-    """
-    return await _update_deployment_impl(
-        service, user_google_email, script_id, deployment_id, description
-    )
-
-
 async def _delete_deployment_impl(
     service: Any,
     user_google_email: str,
@@ -625,32 +626,6 @@ async def _delete_deployment_impl(
 
     logger.info(f"[delete_deployment] Deleted deployment {deployment_id}")
     return output
-
-
-@server.tool()
-@handle_http_errors("delete_deployment", service_type="script")
-@require_google_service("script", "script_deployments")
-async def delete_deployment(
-    service: Any,
-    user_google_email: str,
-    script_id: str,
-    deployment_id: str,
-) -> str:
-    """
-    Deletes a deployment.
-
-    Args:
-        service: Injected Google API service client
-        user_google_email: User's email address
-        script_id: The script project ID
-        deployment_id: The deployment ID to delete
-
-    Returns:
-        str: Confirmation message
-    """
-    return await _delete_deployment_impl(
-        service, user_google_email, script_id, deployment_id
-    )
 
 
 async def _list_script_processes_impl(

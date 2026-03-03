@@ -2,12 +2,14 @@ import io
 import logging
 import os
 import zipfile
-import xml.etree.ElementTree as ET
 import ssl
 import asyncio
 import functools
 
+from pathlib import Path
 from typing import List, Optional
+
+from defusedxml import ElementTree as ET
 
 from googleapiclient.errors import HttpError
 from .api_enablement import get_api_enablement_message
@@ -27,6 +29,135 @@ class UserInputError(Exception):
     """Raised for user-facing input/validation errors that shouldn't be retried."""
 
     pass
+
+
+# Directories from which local file reads are allowed.
+# The user's home directory is the default safe base.
+# Override via ALLOWED_FILE_DIRS env var (os.pathsep-separated paths).
+_ALLOWED_FILE_DIRS_ENV = "ALLOWED_FILE_DIRS"
+
+
+def _get_allowed_file_dirs() -> list[Path]:
+    """Return the list of directories from which local file access is permitted."""
+    env_val = os.environ.get(_ALLOWED_FILE_DIRS_ENV)
+    if env_val:
+        return [
+            Path(p).expanduser().resolve()
+            for p in env_val.split(os.pathsep)
+            if p.strip()
+        ]
+    home = Path.home()
+    return [home] if home else []
+
+
+def validate_file_path(file_path: str) -> Path:
+    """
+    Validate that a file path is safe to read from the server filesystem.
+
+    Resolves the path canonically (following symlinks), then verifies it falls
+    within one of the allowed base directories. Rejects paths to sensitive
+    system locations regardless of allowlist.
+
+    Args:
+        file_path: The raw file path string to validate.
+
+    Returns:
+        Path: The resolved, validated Path object.
+
+    Raises:
+        ValueError: If the path is outside allowed directories or targets
+                    a sensitive location.
+    """
+    resolved = Path(file_path).resolve()
+
+    if not resolved.exists():
+        raise FileNotFoundError(f"Path does not exist: {resolved}")
+
+    # Block sensitive file patterns regardless of allowlist
+    resolved_str = str(resolved)
+    file_name = resolved.name.lower()
+
+    # Block .env files and variants (.env, .env.local, .env.production, etc.)
+    if file_name == ".env" or file_name.startswith(".env."):
+        raise ValueError(
+            f"Access to '{resolved_str}' is not allowed: "
+            ".env files may contain secrets and cannot be read, uploaded, or attached."
+        )
+
+    # Block well-known sensitive system paths (including macOS /private variants)
+    sensitive_prefixes = (
+        "/proc",
+        "/sys",
+        "/dev",
+        "/etc/shadow",
+        "/etc/passwd",
+        "/private/etc/shadow",
+        "/private/etc/passwd",
+    )
+    for prefix in sensitive_prefixes:
+        if resolved_str == prefix or resolved_str.startswith(prefix + "/"):
+            raise ValueError(
+                f"Access to '{resolved_str}' is not allowed: "
+                "path is in a restricted system location."
+            )
+
+    # Block sensitive directories that commonly contain credentials/keys
+    sensitive_dirs = (
+        ".ssh",
+        ".aws",
+        ".kube",
+        ".gnupg",
+        ".config/gcloud",
+    )
+    for sensitive_dir in sensitive_dirs:
+        home = Path.home()
+        blocked = home / sensitive_dir
+        if resolved == blocked or str(resolved).startswith(str(blocked) + "/"):
+            raise ValueError(
+                f"Access to '{resolved_str}' is not allowed: "
+                "path is in a directory that commonly contains secrets or credentials."
+            )
+
+    # Block other credential/secret file patterns
+    sensitive_names = {
+        ".credentials",
+        ".credentials.json",
+        "credentials.json",
+        "client_secret.json",
+        "client_secrets.json",
+        "service_account.json",
+        "service-account.json",
+        ".npmrc",
+        ".pypirc",
+        ".netrc",
+        ".git-credentials",
+        ".docker/config.json",
+    }
+    if file_name in sensitive_names:
+        raise ValueError(
+            f"Access to '{resolved_str}' is not allowed: "
+            "this file commonly contains secrets or credentials."
+        )
+
+    allowed_dirs = _get_allowed_file_dirs()
+    if not allowed_dirs:
+        raise ValueError(
+            "No allowed file directories configured. "
+            "Set the ALLOWED_FILE_DIRS environment variable or ensure a home directory exists."
+        )
+
+    for allowed in allowed_dirs:
+        try:
+            resolved.relative_to(allowed)
+            return resolved
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"Access to '{resolved_str}' is not allowed: "
+        f"path is outside permitted directories ({', '.join(str(d) for d in allowed_dirs)}). "
+        "Set ALLOWED_FILE_DIRS to adjust."
+    )
 
 
 def check_credentials_directory_permissions(credentials_dir: str = None) -> None:
@@ -96,7 +227,7 @@ def extract_office_xml_text(file_bytes: bytes, mime_type: str) -> Optional[str]:
     """
     Very light-weight XML scraper for Word, Excel, PowerPoint files.
     Returns plain-text if something readable is found, else None.
-    No external deps – just std-lib zipfile + ElementTree.
+    Uses zipfile + defusedxml.ElementTree.
     """
     shared_strings: List[str] = []
     ns_excel_main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -352,6 +483,10 @@ def handle_http_errors(
                     message = f"An unexpected error occurred in {tool_name}: {e}"
                     logger.exception(message)
                     raise Exception(message) from e
+
+        # Propagate _required_google_scopes if present (for tool filtering)
+        if hasattr(func, "_required_google_scopes"):
+            wrapper._required_google_scopes = func._required_google_scopes
 
         return wrapper
 

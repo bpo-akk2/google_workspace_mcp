@@ -8,7 +8,9 @@ This provider acts as a Resource Server only - it validates tokens issued by
 Google's Authorization Server but does not issue tokens itself.
 """
 
+import functools
 import logging
+import os
 import time
 from typing import Optional
 
@@ -23,6 +25,37 @@ logger = logging.getLogger(__name__)
 
 # Google's OAuth 2.0 Authorization Server
 GOOGLE_ISSUER_URL = "https://accounts.google.com"
+
+# Configurable session time in seconds (default: 1 hour, max: 24 hours)
+_DEFAULT_SESSION_TIME = 3600
+_MAX_SESSION_TIME = 86400
+
+
+@functools.lru_cache(maxsize=1)
+def get_session_time() -> int:
+    """Parse SESSION_TIME from environment with fallback, min/max clamp.
+
+    Result is cached; changes require a server restart.
+    """
+    raw = os.getenv("SESSION_TIME", "")
+    if not raw:
+        return _DEFAULT_SESSION_TIME
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid SESSION_TIME=%r, falling back to %d", raw, _DEFAULT_SESSION_TIME
+        )
+        return _DEFAULT_SESSION_TIME
+    clamped = max(1, min(value, _MAX_SESSION_TIME))
+    if clamped != value:
+        logger.warning(
+            "SESSION_TIME=%d clamped to %d (allowed range: 1–%d)",
+            value,
+            clamped,
+            _MAX_SESSION_TIME,
+        )
+    return clamped
 
 
 class ExternalOAuthProvider(GoogleProvider):
@@ -83,9 +116,10 @@ class ExternalOAuthProvider(GoogleProvider):
                 )
 
                 # Validate token by calling userinfo API
-                user_info = get_user_info(credentials)
+                user_info = get_user_info(credentials, skip_valid_check=True)
 
                 if user_info and user_info.get("email"):
+                    session_time = get_session_time()
                     # Token is valid - create AccessToken object
                     logger.info(
                         f"Validated external access token for: {user_info['email']}"
@@ -95,8 +129,7 @@ class ExternalOAuthProvider(GoogleProvider):
                     access_token = WorkspaceAccessToken(
                         token=token,
                         scopes=scope_list,
-                        expires_at=int(time.time())
-                        + 3600,  # Default to 1-hour validity
+                        expires_at=int(time.time()) + session_time,
                         claims={
                             "email": user_info["email"],
                             "sub": user_info.get("id"),

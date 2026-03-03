@@ -9,6 +9,7 @@ Supports both OAuth 2.0 and OAuth 2.1 with automatic client capability detection
 """
 
 import os
+from threading import RLock
 from urllib.parse import urlparse
 from typing import List, Optional, Dict, Any
 
@@ -356,35 +357,40 @@ class OAuthConfig:
         return metadata
 
 
-# Global configuration instance
+# Global configuration instance with thread-safe access
 _oauth_config = None
+_oauth_config_lock = RLock()
 
 
 def get_oauth_config() -> OAuthConfig:
     """
     Get the global OAuth configuration instance.
 
+    Thread-safe singleton accessor.
+
     Returns:
         The singleton OAuth configuration instance
     """
     global _oauth_config
-    if _oauth_config is None:
-        _oauth_config = OAuthConfig()
-    return _oauth_config
+    with _oauth_config_lock:
+        if _oauth_config is None:
+            _oauth_config = OAuthConfig()
+        return _oauth_config
 
 
 def reload_oauth_config() -> OAuthConfig:
     """
     Reload the OAuth configuration from environment variables.
 
-    This is useful for testing or when environment variables change.
+    Thread-safe reload that prevents races with concurrent access.
 
     Returns:
         The reloaded OAuth configuration instance
     """
     global _oauth_config
-    _oauth_config = OAuthConfig()
-    return _oauth_config
+    with _oauth_config_lock:
+        _oauth_config = OAuthConfig()
+        return _oauth_config
 
 
 # Convenience functions for backward compatibility

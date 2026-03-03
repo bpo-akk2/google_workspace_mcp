@@ -2,13 +2,14 @@
 Authentication middleware to populate context state with user information
 """
 
-import jwt
 import logging
 import time
+
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.dependencies import get_http_headers
 
+from auth.external_oauth_provider import get_session_time
 from auth.oauth21_session_store import ensure_session_from_access_token
 from auth.oauth_types import WorkspaceAccessToken
 
@@ -39,9 +40,7 @@ class AuthInfoMiddleware(Middleware):
         try:
             access_token = get_access_token()
             if access_token:
-                logger.info(
-                    f"[AuthInfoMiddleware] FastMCP access_token found: {type(access_token)}"
-                )
+                logger.info("[AuthInfoMiddleware] FastMCP access_token found")
                 user_email = getattr(access_token, "email", None)
                 if not user_email and hasattr(access_token, "claims"):
                     user_email = access_token.claims.get("email")
@@ -50,13 +49,15 @@ class AuthInfoMiddleware(Middleware):
                     logger.info(
                         f"✓ Using FastMCP validated token for user: {user_email}"
                     )
-                    context.fastmcp_context.set_state(
+                    await context.fastmcp_context.set_state(
                         "authenticated_user_email", user_email
                     )
-                    context.fastmcp_context.set_state(
+                    await context.fastmcp_context.set_state(
                         "authenticated_via", "fastmcp_oauth"
                     )
-                    context.fastmcp_context.set_state("access_token", access_token)
+                    await context.fastmcp_context.set_state(
+                        "access_token", access_token, serializable=False
+                    )
                     authenticated_user = user_email
                     auth_via = "fastmcp_oauth"
                 else:
@@ -81,7 +82,7 @@ class AuthInfoMiddleware(Middleware):
                     auth_header = headers.get("authorization", "")
                     if auth_header.startswith("Bearer "):
                         token_str = auth_header[7:]  # Remove "Bearer " prefix
-                        logger.info(f"Found Bearer token: {token_str[:20]}...")
+                        logger.info("Found Bearer token in request")
 
                         # For Google OAuth tokens (ya29.*), we need to verify them differently
                         if token_str.startswith("ya29."):
@@ -99,76 +100,84 @@ class AuthInfoMiddleware(Middleware):
                                         token_str
                                     )
                                     if verified_auth:
-                                        # Extract user info from verified token
-                                        user_email = None
-                                        if hasattr(verified_auth, "claims"):
+                                        # Extract user email from verified token
+                                        user_email = getattr(
+                                            verified_auth, "email", None
+                                        )
+                                        if not user_email and hasattr(
+                                            verified_auth, "claims"
+                                        ):
                                             user_email = verified_auth.claims.get(
                                                 "email"
                                             )
 
-                                        # Get expires_at, defaulting to 1 hour from now if not available
-                                        if hasattr(verified_auth, "expires_at"):
-                                            expires_at = verified_auth.expires_at
+                                        if isinstance(
+                                            verified_auth, WorkspaceAccessToken
+                                        ):
+                                            # ExternalOAuthProvider returns a fully-formed WorkspaceAccessToken
+                                            access_token = verified_auth
                                         else:
-                                            expires_at = (
-                                                int(time.time()) + 3600
-                                            )  # Default to 1 hour
-
-                                        # Get client_id from verified auth or use default
-                                        client_id = (
-                                            getattr(verified_auth, "client_id", None)
-                                            or "google"
-                                        )
-
-                                        access_token = WorkspaceAccessToken(
-                                            token=token_str,
-                                            client_id=client_id,
-                                            scopes=verified_auth.scopes
-                                            if hasattr(verified_auth, "scopes")
-                                            else [],
-                                            session_id=f"google_oauth_{token_str[:8]}",
-                                            expires_at=expires_at,
-                                            claims=getattr(verified_auth, "claims", {})
-                                            or {},
-                                            sub=verified_auth.sub
-                                            if hasattr(verified_auth, "sub")
-                                            else user_email,
-                                            email=user_email,
-                                        )
+                                            # Standard GoogleProvider returns a base AccessToken;
+                                            # wrap it in WorkspaceAccessToken for identical downstream handling
+                                            verified_expires = getattr(
+                                                verified_auth, "expires_at", None
+                                            )
+                                            access_token = WorkspaceAccessToken(
+                                                token=token_str,
+                                                client_id=getattr(
+                                                    verified_auth, "client_id", None
+                                                )
+                                                or "google",
+                                                scopes=getattr(
+                                                    verified_auth, "scopes", []
+                                                )
+                                                or [],
+                                                session_id=f"google_oauth_{token_str[:8]}",
+                                                expires_at=verified_expires
+                                                if verified_expires is not None
+                                                else int(time.time())
+                                                + get_session_time(),
+                                                claims=getattr(
+                                                    verified_auth, "claims", {}
+                                                )
+                                                or {},
+                                                sub=getattr(verified_auth, "sub", None)
+                                                or user_email,
+                                                email=user_email,
+                                            )
 
                                         # Store in context state - this is the authoritative authentication state
-                                        context.fastmcp_context.set_state(
-                                            "access_token", access_token
+                                        await context.fastmcp_context.set_state(
+                                            "access_token",
+                                            access_token,
+                                            serializable=False,
                                         )
                                         mcp_session_id = getattr(
                                             context.fastmcp_context, "session_id", None
                                         )
                                         ensure_session_from_access_token(
-                                            verified_auth,
+                                            access_token,
                                             user_email,
                                             mcp_session_id,
                                         )
-                                        context.fastmcp_context.set_state(
-                                            "access_token_obj", verified_auth
-                                        )
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "auth_provider_type",
                                             self.auth_provider_type,
                                         )
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "token_type", "google_oauth"
                                         )
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "user_email", user_email
                                         )
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "username", user_email
                                         )
                                         # Set the definitive authentication state
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "authenticated_user_email", user_email
                                         )
-                                        context.fastmcp_context.set_state(
+                                        await context.fastmcp_context.set_state(
                                             "authenticated_via", "bearer_token"
                                         )
                                         authenticated_user = user_email
@@ -187,90 +196,11 @@ class AuthInfoMiddleware(Middleware):
                                 )
 
                         else:
-                            # Decode JWT to get user info
-                            logger.info("Processing JWT token")
-                            try:
-                                token_payload = jwt.decode(
-                                    token_str, options={"verify_signature": False}
-                                )
-                                logger.info(
-                                    f"JWT payload decoded: {list(token_payload.keys())}"
-                                )
-
-                                # Create an AccessToken-like object
-                                access_token = WorkspaceAccessToken(
-                                    token=token_str,
-                                    client_id=token_payload.get("client_id", "unknown"),
-                                    scopes=token_payload.get("scope", "").split()
-                                    if token_payload.get("scope")
-                                    else [],
-                                    session_id=token_payload.get(
-                                        "sid",
-                                        token_payload.get(
-                                            "jti",
-                                            token_payload.get("session_id", "unknown"),
-                                        ),
-                                    ),
-                                    expires_at=token_payload.get("exp", 0),
-                                    claims=token_payload,
-                                    sub=token_payload.get("sub"),
-                                    email=token_payload.get("email"),
-                                )
-
-                                # Store in context state
-                                context.fastmcp_context.set_state(
-                                    "access_token", access_token
-                                )
-
-                                # Store additional user info
-                                context.fastmcp_context.set_state(
-                                    "user_id", token_payload.get("sub")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "username",
-                                    token_payload.get(
-                                        "username", token_payload.get("email")
-                                    ),
-                                )
-                                context.fastmcp_context.set_state(
-                                    "name", token_payload.get("name")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "auth_time", token_payload.get("auth_time")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "issuer", token_payload.get("iss")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "audience", token_payload.get("aud")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "jti", token_payload.get("jti")
-                                )
-                                context.fastmcp_context.set_state(
-                                    "auth_provider_type", self.auth_provider_type
-                                )
-
-                                # Set the definitive authentication state for JWT tokens
-                                user_email = token_payload.get(
-                                    "email", token_payload.get("username")
-                                )
-                                if user_email:
-                                    context.fastmcp_context.set_state(
-                                        "authenticated_user_email", user_email
-                                    )
-                                    context.fastmcp_context.set_state(
-                                        "authenticated_via", "jwt_token"
-                                    )
-                                    authenticated_user = user_email
-                                    auth_via = "jwt_token"
-
-                            except jwt.DecodeError:
-                                logger.error("Failed to decode JWT token")
-                            except Exception as e:
-                                logger.error(
-                                    f"Error processing JWT: {type(e).__name__}"
-                                )
+                            # Non-Google JWT tokens require verification
+                            # SECURITY: Never set authenticated_user_email from unverified tokens
+                            logger.debug(
+                                "Unverified JWT token rejected - only verified tokens accepted"
+                            )
                     else:
                         logger.debug("No Bearer token in Authorization header")
                 else:
@@ -317,13 +247,13 @@ class AuthInfoMiddleware(Middleware):
                                 f"Using recent stdio session for {requested_user}"
                             )
                             # In stdio mode, we can trust the user has authenticated recently
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_user_email", requested_user
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_via", "stdio_session"
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "auth_provider_type", "oauth21_stdio"
                             )
                             authenticated_user = requested_user
@@ -342,17 +272,21 @@ class AuthInfoMiddleware(Middleware):
                             logger.debug(
                                 f"Defaulting to single stdio OAuth session for {single_user}"
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_user_email", single_user
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_via", "stdio_single_session"
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "auth_provider_type", "oauth21_stdio"
                             )
-                            context.fastmcp_context.set_state("user_email", single_user)
-                            context.fastmcp_context.set_state("username", single_user)
+                            await context.fastmcp_context.set_state(
+                                "user_email", single_user
+                            )
+                            await context.fastmcp_context.set_state(
+                                "username", single_user
+                            )
                             authenticated_user = single_user
                             auth_via = "stdio_single_session"
                     except Exception as e:
@@ -375,13 +309,13 @@ class AuthInfoMiddleware(Middleware):
                         bound_user = store.get_user_by_mcp_session(mcp_session_id)
                         if bound_user:
                             logger.debug(f"MCP session bound to {bound_user}")
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_user_email", bound_user
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "authenticated_via", "mcp_session_binding"
                             )
-                            context.fastmcp_context.set_state(
+                            await context.fastmcp_context.set_state(
                                 "auth_provider_type", "oauth21_session"
                             )
                             authenticated_user = bound_user
@@ -392,8 +326,11 @@ class AuthInfoMiddleware(Middleware):
         # Single exit point with logging
         if authenticated_user:
             logger.info(f"✓ Authenticated via {auth_via}: {authenticated_user}")
+            auth_email = await context.fastmcp_context.get_state(
+                "authenticated_user_email"
+            )
             logger.debug(
-                f"Context state after auth: authenticated_user_email={context.fastmcp_context.get_state('authenticated_user_email')}"
+                f"Context state after auth: authenticated_user_email={auth_email}"
             )
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):

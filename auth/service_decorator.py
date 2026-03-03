@@ -39,6 +39,7 @@ from auth.scopes import (
     CHAT_READONLY_SCOPE,
     CHAT_WRITE_SCOPE,
     CHAT_SPACES_SCOPE,
+    CHAT_SPACES_READONLY_SCOPE,
     FORMS_BODY_SCOPE,
     FORMS_BODY_READONLY_SCOPE,
     FORMS_RESPONSES_READONLY_SCOPE,
@@ -53,13 +54,14 @@ from auth.scopes import (
     SCRIPT_PROJECTS_READONLY_SCOPE,
     SCRIPT_DEPLOYMENTS_SCOPE,
     SCRIPT_DEPLOYMENTS_READONLY_SCOPE,
+    has_required_scopes,
 )
 
 logger = logging.getLogger(__name__)
 
 
 # Authentication helper functions
-def _get_auth_context(
+async def _get_auth_context(
     tool_name: str,
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
@@ -73,8 +75,8 @@ def _get_auth_context(
         if not ctx:
             return None, None, None
 
-        authenticated_user = ctx.get_state("authenticated_user_email")
-        auth_method = ctx.get_state("authenticated_via")
+        authenticated_user = await ctx.get_state("authenticated_user_email")
+        auth_method = await ctx.get_state("authenticated_via")
         mcp_session_id = ctx.session_id if hasattr(ctx, "session_id") else None
 
         if mcp_session_id:
@@ -274,7 +276,7 @@ async def get_authenticated_google_service_oauth21(
         if not scopes_available and getattr(access_token, "scopes", None):
             scopes_available = set(access_token.scopes)
 
-        if not all(scope in scopes_available for scope in required_scopes):
+        if not has_required_scopes(scopes_available, required_scopes):
             raise GoogleAuthenticationError(
                 f"OAuth credentials lack required scopes. Need: {required_scopes}, Have: {sorted(scopes_available)}"
             )
@@ -304,7 +306,7 @@ async def get_authenticated_google_service_oauth21(
     else:
         scopes_available = set(credentials.scopes)
 
-    if not all(scope in scopes_available for scope in required_scopes):
+    if not has_required_scopes(scopes_available, required_scopes):
         raise GoogleAuthenticationError(
             f"OAuth 2.1 credentials lack required scopes. Need: {required_scopes}, Have: {sorted(scopes_available)}"
         )
@@ -439,6 +441,7 @@ SCOPE_GROUPS = {
     "chat_read": CHAT_READONLY_SCOPE,
     "chat_write": CHAT_WRITE_SCOPE,
     "chat_spaces": CHAT_SPACES_SCOPE,
+    "chat_spaces_readonly": CHAT_SPACES_READONLY_SCOPE,
     # Forms scopes
     "forms": FORMS_BODY_SCOPE,
     "forms_read": FORMS_BODY_READONLY_SCOPE,
@@ -604,7 +607,7 @@ def require_google_service(
             # which does not include 'service'.
 
             # Get authentication context early to determine OAuth mode
-            authenticated_user, auth_method, mcp_session_id = _get_auth_context(
+            authenticated_user, auth_method, mcp_session_id = await _get_auth_context(
                 func.__name__
             )
 
@@ -703,6 +706,9 @@ def require_google_service(
             if func.__doc__:
                 wrapper.__doc__ = _remove_user_email_arg_from_docstring(func.__doc__)
 
+        # Attach required scopes to the wrapper for tool filtering
+        wrapper._required_google_scopes = _resolve_scopes(scopes)
+
         return wrapper
 
     return decorator
@@ -748,7 +754,7 @@ def require_multiple_services(service_configs: List[Dict[str, Any]]):
         async def wrapper(*args, **kwargs):
             # Get authentication context early
             tool_name = func.__name__
-            authenticated_user, _, mcp_session_id = _get_auth_context(tool_name)
+            authenticated_user, _, mcp_session_id = await _get_auth_context(tool_name)
 
             # Extract user_google_email based on OAuth mode
             if is_oauth21_enabled():
@@ -842,6 +848,12 @@ def require_multiple_services(service_configs: List[Dict[str, Any]]):
             )
             if func.__doc__:
                 wrapper.__doc__ = _remove_user_email_arg_from_docstring(func.__doc__)
+
+        # Attach all required scopes to the wrapper for tool filtering
+        all_scopes = []
+        for config in service_configs:
+            all_scopes.extend(_resolve_scopes(config["scopes"]))
+        wrapper._required_google_scopes = all_scopes
 
         return wrapper
 
