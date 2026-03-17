@@ -1469,6 +1469,7 @@ async def update_paragraph_style(
     indent_end: float = None,
     space_above: float = None,
     space_below: float = None,
+    named_style_type: str = None,
     list_type: str = None,
     list_nesting_level: int = None,
 ) -> str:
@@ -1494,6 +1495,8 @@ async def update_paragraph_style(
         indent_end: Right/end indent in points
         space_above: Space above paragraph in points (e.g., 12 for one line)
         space_below: Space below paragraph in points
+        named_style_type: Direct named style type - 'NORMAL_TEXT', 'TITLE', 'SUBTITLE',
+                         'HEADING_1' through 'HEADING_6'. Mutually exclusive with heading_level.
         list_type: Create a list from existing paragraphs ('UNORDERED' for bullets, 'ORDERED' for numbers)
         list_nesting_level: Nesting level for lists (0-8, where 0 is top level, default is 0)
                            Use higher levels for nested/indented list items
@@ -1552,12 +1555,30 @@ async def update_paragraph_style(
         if list_nesting_level < 0 or list_nesting_level > 8:
             return "Error: list_nesting_level must be between 0 and 8"
 
+    # Validate named_style_type
+    if named_style_type is not None and heading_level is not None:
+        return "Error: heading_level and named_style_type are mutually exclusive; provide only one"
+
+    if named_style_type is not None:
+        valid_styles = [
+            "NORMAL_TEXT", "TITLE", "SUBTITLE",
+            "HEADING_1", "HEADING_2", "HEADING_3",
+            "HEADING_4", "HEADING_5", "HEADING_6",
+        ]
+        if named_style_type not in valid_styles:
+            return f"Error: Invalid named_style_type '{named_style_type}'. Must be one of: {', '.join(valid_styles)}"
+
     # Build paragraph style object
     paragraph_style = {}
     fields = []
 
+    # Handle named_style_type (direct named style)
+    if named_style_type is not None:
+        paragraph_style["namedStyleType"] = named_style_type
+        fields.append("namedStyleType")
+
     # Handle heading level (named style)
-    if heading_level is not None:
+    elif heading_level is not None:
         if heading_level < 0 or heading_level > 6:
             return "Error: heading_level must be between 0 (normal text) and 6"
         if heading_level == 0:

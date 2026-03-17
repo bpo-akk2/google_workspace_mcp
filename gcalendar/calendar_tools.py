@@ -172,6 +172,21 @@ def _preserve_existing_fields(
             event_body[field_name] = new_value
 
 
+def _get_meeting_link(item: Dict[str, Any]) -> str:
+    """Extract video meeting link from event conference data or hangoutLink."""
+    conference_data = item.get("conferenceData")
+    if conference_data and "entryPoints" in conference_data:
+        for entry_point in conference_data["entryPoints"]:
+            if entry_point.get("entryPointType") == "video":
+                uri = entry_point.get("uri", "")
+                if uri:
+                    return uri
+    hangout_link = item.get("hangoutLink", "")
+    if hangout_link:
+        return hangout_link
+    return ""
+
+
 def _format_attendee_details(
     attendees: List[Dict[str, Any]], indent: str = "  "
 ) -> str:
@@ -448,6 +463,8 @@ async def get_events(
         )
         attendee_details_str = _format_attendee_details(attendees, indent="  ")
 
+        meeting_link = _get_meeting_link(item)
+
         event_details = (
             f"Event Details:\n"
             f"- Title: {summary}\n"
@@ -456,6 +473,10 @@ async def get_events(
             f"- Description: {description}\n"
             f"- Location: {location}\n"
             f"- Color ID: {color_id}\n"
+        )
+        if meeting_link:
+            event_details += f"- Meeting Link: {meeting_link}\n"
+        event_details += (
             f"- Attendees: {attendee_emails}\n"
             f"- Attendee Details: {attendee_details_str}\n"
         )
@@ -494,10 +515,16 @@ async def get_events(
             )
             attendee_details_str = _format_attendee_details(attendees, indent="    ")
 
+            meeting_link = _get_meeting_link(item)
+
             event_detail_parts = (
                 f'- "{summary}" (Starts: {start_time}, Ends: {end_time})\n'
                 f"  Description: {description}\n"
                 f"  Location: {location}\n"
+            )
+            if meeting_link:
+                event_detail_parts += f"  Meeting Link: {meeting_link}\n"
+            event_detail_parts += (
                 f"  Attendees: {attendee_emails}\n"
                 f"  Attendee Details: {attendee_details_str}\n"
             )
@@ -513,9 +540,12 @@ async def get_events(
             event_details_list.append(event_detail_parts)
         else:
             # Basic output format
-            event_details_list.append(
-                f'- "{summary}" (Starts: {start_time}, Ends: {end_time}) ID: {item_event_id} | Link: {link}'
-            )
+            meeting_link = _get_meeting_link(item)
+            basic_line = f'- "{summary}" (Starts: {start_time}, Ends: {end_time})'
+            if meeting_link:
+                basic_line += f" Meeting: {meeting_link}"
+            basic_line += f" ID: {item_event_id} | Link: {link}"
+            event_details_list.append(basic_line)
 
     if event_id:
         # Single event basic output

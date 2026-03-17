@@ -7,6 +7,7 @@ This module provides MCP tools for interacting with the Gmail API.
 import logging
 import asyncio
 import base64
+import re
 import ssl
 import mimetypes
 from html.parser import HTMLParser
@@ -227,7 +228,9 @@ def _append_signature_to_body(
     return f"{body}{separator}{signature_text}"
 
 
-async def _fetch_original_for_quote(service, thread_id: str, in_reply_to: Optional[str] = None) -> Optional[dict]:
+async def _fetch_original_for_quote(
+    service, thread_id: str, in_reply_to: Optional[str] = None
+) -> Optional[dict]:
     """Fetch the original message from a thread for quoting in a reply.
 
     When *in_reply_to* is provided the function looks for that specific
@@ -256,8 +259,7 @@ async def _fetch_original_for_quote(service, thread_id: str, in_reply_to: Option
     if in_reply_to:
         for msg in messages:
             headers = {
-                h["name"]: h["value"]
-                for h in msg.get("payload", {}).get("headers", [])
+                h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])
             }
             if headers.get("Message-ID") == in_reply_to:
                 target = msg
@@ -266,8 +268,7 @@ async def _fetch_original_for_quote(service, thread_id: str, in_reply_to: Option
         target = messages[-1]
 
     headers = {
-        h["name"]: h["value"]
-        for h in target.get("payload", {}).get("headers", [])
+        h["name"]: h["value"] for h in target.get("payload", {}).get("headers", [])
     }
     bodies = _extract_message_bodies(target.get("payload", {}))
     return {
@@ -439,6 +440,91 @@ def _extract_headers(payload: dict, header_names: List[str]) -> Dict[str, str]:
             # Store using the original requested casing
             headers[target_headers[header_name_lower]] = header["value"]
     return headers
+
+
+def _parse_message_id_chain(header_value: Optional[str]) -> List[str]:
+    """Extract Message-IDs from a reply header value."""
+    if not header_value:
+        return []
+
+    message_ids = re.findall(r"<[^>]+>", header_value)
+    if message_ids:
+        return message_ids
+
+    return header_value.split()
+
+
+def _derive_reply_headers(
+    thread_message_ids: List[str],
+    in_reply_to: Optional[str],
+    references: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    """Fill missing reply headers while preserving caller intent."""
+    derived_in_reply_to = in_reply_to
+    derived_references = references
+
+    if not thread_message_ids:
+        return derived_in_reply_to, derived_references
+
+    if not derived_in_reply_to:
+        reference_chain = _parse_message_id_chain(derived_references)
+        derived_in_reply_to = (
+            reference_chain[-1] if reference_chain else thread_message_ids[-1]
+        )
+
+    if not derived_references:
+        if derived_in_reply_to and derived_in_reply_to in thread_message_ids:
+            reply_index = thread_message_ids.index(derived_in_reply_to)
+            derived_references = " ".join(thread_message_ids[: reply_index + 1])
+        elif derived_in_reply_to:
+            derived_references = derived_in_reply_to
+        else:
+            derived_references = " ".join(thread_message_ids)
+
+    return derived_in_reply_to, derived_references
+
+
+async def _fetch_thread_message_ids(service, thread_id: str) -> List[str]:
+    """
+    Fetch Message-ID headers from a Gmail thread for reply threading.
+
+    Args:
+        service: Gmail API service instance
+        thread_id: Gmail thread ID
+
+    Returns:
+        Message-IDs in thread order. Returns an empty list on failure.
+    """
+    try:
+        thread = await asyncio.to_thread(
+            service.users()
+            .threads()
+            .get(
+                userId="me",
+                id=thread_id,
+                format="metadata",
+                metadataHeaders=["Message-ID"],
+            )
+            .execute
+        )
+        messages = thread.get("messages", [])
+        if not messages:
+            return []
+
+        # Collect all Message-IDs in thread order
+        message_ids = []
+        for msg in messages:
+            headers = _extract_headers(msg.get("payload", {}), ["Message-ID"])
+            mid = headers.get("Message-ID")
+            if mid:
+                message_ids.append(mid)
+
+        return message_ids
+    except Exception as e:
+        logger.warning(
+            f"Failed to fetch thread Message-IDs for thread {thread_id}: {e}"
+        )
+        return []
 
 
 def _prepare_gmail_message(
@@ -1639,9 +1725,19 @@ async def draft_gmail_message(
                 draft_body, body_format, signature_html, original
             )
         else:
-            draft_body = _append_signature_to_body(draft_body, body_format, signature_html)
+            draft_body = _append_signature_to_body(
+                draft_body, body_format, signature_html
+            )
     else:
         draft_body = _append_signature_to_body(draft_body, body_format, signature_html)
+
+    # Auto-populate In-Reply-To and References when thread_id is provided
+    # but headers are missing, to ensure the draft renders inline in Gmail
+    if thread_id and (not in_reply_to or not references):
+        thread_message_ids = await _fetch_thread_message_ids(service, thread_id)
+        in_reply_to, references = _derive_reply_headers(
+            thread_message_ids, in_reply_to, references
+        )
 
     raw_message, thread_id_final, attached_count = _prepare_gmail_message(
         subject=subject,

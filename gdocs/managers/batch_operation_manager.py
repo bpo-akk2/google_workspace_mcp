@@ -478,6 +478,7 @@ class BatchOperationManager:
                         "indent_end",
                         "space_above",
                         "space_below",
+                        "named_style_type",
                     ],
                     "description": "Apply paragraph-level styling (headings, alignment, spacing, indentation)",
                 },

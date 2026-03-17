@@ -320,6 +320,12 @@ class ValidationManager:
                 "At least one paragraph style parameter must be provided (heading_level, alignment, line_spacing, indent_first_line, indent_start, indent_end, space_above, space_below, or named_style_type)",
             )
 
+        if heading_level is not None and named_style_type is not None:
+            return (
+                False,
+                "heading_level and named_style_type are mutually exclusive; provide only one",
+            )
+
         if named_style_type is not None:
             valid_styles = [
                 "NORMAL_TEXT",
