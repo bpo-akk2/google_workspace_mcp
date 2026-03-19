@@ -16,8 +16,8 @@ from gdocs import docs_tools
 from gdocs.docs_helpers import build_text_style, create_format_text_request
 from gdocs.managers.validation_manager import ValidationManager
 
-SCHEMA_GOLDEN_PATH = Path(__file__).with_name("golden").joinpath(
-    "docs_tool_schemas.json"
+SCHEMA_GOLDEN_PATH = (
+    Path(__file__).with_name("golden").joinpath("docs_tool_schemas.json")
 )
 
 
@@ -203,9 +203,9 @@ class TestDocsToolSchemaGolden:
         generated = _schema_subset()
         golden = json.loads(SCHEMA_GOLDEN_PATH.read_text())
 
-        assert (
-            "strikethrough" in generated["modify_doc_text"]["properties"]
-        ), "modify_doc_text schema is missing the strikethrough parameter"
+        assert "strikethrough" in generated["modify_doc_text"]["properties"], (
+            "modify_doc_text schema is missing the strikethrough parameter"
+        )
 
         if generated != golden:
             expected = json.dumps(golden, indent=2, sort_keys=True).splitlines()
