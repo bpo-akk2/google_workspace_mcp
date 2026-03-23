@@ -37,22 +37,9 @@ GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 GMAIL_LABELS_SCOPE = "https://www.googleapis.com/auth/gmail.labels"
 GMAIL_SETTINGS_BASIC_SCOPE = "https://www.googleapis.com/auth/gmail.settings.basic"
 
-# Google Chat API scopes
-CHAT_READONLY_SCOPE = "https://www.googleapis.com/auth/chat.messages.readonly"
-CHAT_WRITE_SCOPE = "https://www.googleapis.com/auth/chat.messages"
-CHAT_SPACES_SCOPE = "https://www.googleapis.com/auth/chat.spaces"
-CHAT_SPACES_READONLY_SCOPE = "https://www.googleapis.com/auth/chat.spaces.readonly"
-
 # Google Sheets API scopes
 SHEETS_READONLY_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly"
 SHEETS_WRITE_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
-
-# Google Forms API scopes
-FORMS_BODY_SCOPE = "https://www.googleapis.com/auth/forms.body"
-FORMS_BODY_READONLY_SCOPE = "https://www.googleapis.com/auth/forms.body.readonly"
-FORMS_RESPONSES_READONLY_SCOPE = (
-    "https://www.googleapis.com/auth/forms.responses.readonly"
-)
 
 # Google Slides API scopes
 SLIDES_SCOPE = "https://www.googleapis.com/auth/presentations"
@@ -61,10 +48,6 @@ SLIDES_READONLY_SCOPE = "https://www.googleapis.com/auth/presentations.readonly"
 # Google Tasks API scopes
 TASKS_SCOPE = "https://www.googleapis.com/auth/tasks"
 TASKS_READONLY_SCOPE = "https://www.googleapis.com/auth/tasks.readonly"
-
-# Google Contacts (People API) scopes
-CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts"
-CONTACTS_READONLY_SCOPE = "https://www.googleapis.com/auth/contacts.readonly"
 
 # Google Custom Search API scope
 CUSTOM_SEARCH_SCOPE = "https://www.googleapis.com/auth/cse"
@@ -97,10 +80,6 @@ SCOPE_HIERARCHY = {
     SHEETS_WRITE_SCOPE: {SHEETS_READONLY_SCOPE},
     SLIDES_SCOPE: {SLIDES_READONLY_SCOPE},
     TASKS_SCOPE: {TASKS_READONLY_SCOPE},
-    CONTACTS_SCOPE: {CONTACTS_READONLY_SCOPE},
-    CHAT_WRITE_SCOPE: {CHAT_READONLY_SCOPE},
-    CHAT_SPACES_SCOPE: {CHAT_SPACES_READONLY_SCOPE},
-    FORMS_BODY_SCOPE: {FORMS_BODY_READONLY_SCOPE},
     SCRIPT_PROJECTS_SCOPE: {SCRIPT_PROJECTS_READONLY_SCOPE},
     SCRIPT_DEPLOYMENTS_SCOPE: {SCRIPT_DEPLOYMENTS_READONLY_SCOPE},
 }
@@ -152,26 +131,11 @@ GMAIL_SCOPES = [
     GMAIL_SETTINGS_BASIC_SCOPE,
 ]
 
-CHAT_SCOPES = [
-    CHAT_READONLY_SCOPE,
-    CHAT_WRITE_SCOPE,
-    CHAT_SPACES_SCOPE,
-    CHAT_SPACES_READONLY_SCOPE,
-]
-
 SHEETS_SCOPES = [SHEETS_READONLY_SCOPE, SHEETS_WRITE_SCOPE, DRIVE_READONLY_SCOPE]
-
-FORMS_SCOPES = [
-    FORMS_BODY_SCOPE,
-    FORMS_BODY_READONLY_SCOPE,
-    FORMS_RESPONSES_READONLY_SCOPE,
-]
 
 SLIDES_SCOPES = [SLIDES_SCOPE, SLIDES_READONLY_SCOPE]
 
 TASKS_SCOPES = [TASKS_SCOPE, TASKS_READONLY_SCOPE]
-
-CONTACTS_SCOPES = [CONTACTS_SCOPE, CONTACTS_READONLY_SCOPE]
 
 CUSTOM_SEARCH_SCOPES = [CUSTOM_SEARCH_SCOPE]
 
@@ -192,11 +156,8 @@ TOOL_SCOPES_MAP = {
     "calendar": CALENDAR_SCOPES,
     "docs": DOCS_SCOPES,
     "sheets": SHEETS_SCOPES,
-    "chat": CHAT_SCOPES,
-    "forms": FORMS_SCOPES,
     "slides": SLIDES_SCOPES,
     "tasks": TASKS_SCOPES,
-    "contacts": CONTACTS_SCOPES,
     "search": CUSTOM_SEARCH_SCOPES,
     "appscript": SCRIPT_SCOPES,
 }
@@ -208,11 +169,8 @@ TOOL_READONLY_SCOPES_MAP = {
     "calendar": [CALENDAR_READONLY_SCOPE],
     "docs": [DOCS_READONLY_SCOPE, DRIVE_READONLY_SCOPE],
     "sheets": [SHEETS_READONLY_SCOPE, DRIVE_READONLY_SCOPE],
-    "chat": [CHAT_READONLY_SCOPE, CHAT_SPACES_READONLY_SCOPE],
-    "forms": [FORMS_BODY_READONLY_SCOPE, FORMS_RESPONSES_READONLY_SCOPE],
     "slides": [SLIDES_READONLY_SCOPE],
     "tasks": [TASKS_READONLY_SCOPE],
-    "contacts": [CONTACTS_READONLY_SCOPE],
     "search": CUSTOM_SEARCH_SCOPES,
     "appscript": [
         SCRIPT_PROJECTS_READONLY_SCOPE,

@@ -86,28 +86,6 @@ sheets:
     - manage_spreadsheet_comment
     - manage_conditional_formatting
 
-chat:
-  core:
-    - send_message
-    - get_messages
-    - search_messages
-    - create_reaction
-  extended:
-    - list_spaces
-    - download_chat_attachment
-  complete: []
-
-forms:
-  core:
-    - create_form
-    - get_form
-  extended:
-    - list_form_responses
-  complete:
-    - set_publish_settings
-    - get_form_response
-    - batch_update_form
-
 slides:
   core:
     - create_presentation
@@ -130,19 +108,6 @@ tasks:
     - list_task_lists
     - get_task_list
     - manage_task_list
-
-contacts:
-  core:
-    - search_contacts
-    - get_contact
-    - list_contacts
-    - manage_contact
-  extended:
-    - list_contact_groups
-    - get_contact_group
-  complete:
-    - manage_contacts_batch
-    - manage_contact_group
 
 search:
   core:

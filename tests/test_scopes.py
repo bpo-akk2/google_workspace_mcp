@@ -15,8 +15,6 @@ from auth.scopes import (
     BASE_SCOPES,
     CALENDAR_READONLY_SCOPE,
     CALENDAR_SCOPE,
-    CONTACTS_READONLY_SCOPE,
-    CONTACTS_SCOPE,
     DRIVE_FILE_SCOPE,
     DRIVE_READONLY_SCOPE,
     DRIVE_SCOPE,
@@ -182,9 +180,6 @@ class TestHasRequiredScopes:
 
     def test_sheets_write_covers_readonly(self):
         assert has_required_scopes([SHEETS_WRITE_SCOPE], [SHEETS_READONLY_SCOPE])
-
-    def test_contacts_covers_readonly(self):
-        assert has_required_scopes([CONTACTS_SCOPE], [CONTACTS_READONLY_SCOPE])
 
     # Mixed: some exact, some via hierarchy
     def test_mixed_exact_and_hierarchy(self):
