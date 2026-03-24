@@ -68,7 +68,12 @@ class OAuthConfig:
 
         # Redirect URI configuration
         self.redirect_uri = self._get_redirect_uri()
-        self.redirect_path = self._get_redirect_path(self.redirect_uri)
+        if self.oauth21_enabled:
+            # Use a dedicated path for FastMCP's MCP OAuth 2.1 callback to avoid
+            # colliding with Google's legacy OAuth callback at /oauth2callback
+            self.redirect_path = "/auth/callback"
+        else:
+            self.redirect_path = self._get_redirect_path(self.redirect_uri)
 
         # Ensure FastMCP's Google provider picks up our existing configuration
         self._apply_fastmcp_google_env()
