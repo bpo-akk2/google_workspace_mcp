@@ -179,7 +179,6 @@ def main():
         choices=[
             "gmail",
             "drive",
-            "calendar",
             "docs",
             "sheets",
             "slides",
@@ -323,7 +322,6 @@ def main():
     tool_imports = {
         "gmail": lambda: import_module("gmail.gmail_tools"),
         "drive": lambda: import_module("gdrive.drive_tools"),
-        "calendar": lambda: import_module("gcalendar.calendar_tools"),
         "docs": lambda: import_module("gdocs.docs_tools"),
         "sheets": lambda: import_module("gsheets.sheets_tools"),
         "slides": lambda: import_module("gslides.slides_tools"),
@@ -335,7 +333,6 @@ def main():
     tool_icons = {
         "gmail": "📧",
         "drive": "📁",
-        "calendar": "📅",
         "docs": "📄",
         "sheets": "📊",
         "slides": "🖼️",
