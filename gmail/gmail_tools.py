@@ -788,7 +788,7 @@ async def get_gmail_messages_content_batch(
 ) -> str:
     """
     Retrieves the content of multiple Gmail messages in a single batch request.
-    Supports up to 25 messages per batch to prevent SSL connection exhaustion.
+    Supports up to 25 messages per batch to prevent SSL connection exhaustion. Not available in the official Google connectors.
 
     Args:
         message_ids (List[str]): List of Gmail message IDs to retrieve (max 25 per batch).
@@ -1000,7 +1000,7 @@ async def get_gmail_attachment_content(
     user_google_email: str,
 ) -> str:
     """
-    Downloads an email attachment and saves it to local disk.
+    Downloads an email attachment and saves it to local disk. Not available in the official Google connectors.
 
     In stdio mode, returns the local file path for direct access.
     In HTTP mode, returns a temporary download URL (valid for 1 hour).
@@ -1226,8 +1226,9 @@ async def send_gmail_message(
     ] = None,
 ) -> str:
     """
-    Sends an email using the user's Gmail account. Supports both new emails and replies with optional attachments.
-    Supports Gmail's "Send As" feature to send from configured alias addresses.
+    Send email with options the Gmail connector lacks. Use this INSTEAD of Gmail
+    send_message when you need to send from a "Send as" alias (from_email, from_name) or
+    attach files from Google Drive by file ID. For regular messages, use send_message.
 
     Args:
         to (str): Recipient email address.
@@ -1381,7 +1382,7 @@ async def get_gmail_threads_content_batch(
 ) -> str:
     """
     Retrieves the content of multiple Gmail threads in a single batch request.
-    Supports up to 25 threads per batch to prevent SSL connection exhaustion.
+    Supports up to 25 threads per batch to prevent SSL connection exhaustion. Not available in the official Google connectors.
 
     Args:
         thread_ids (List[str]): A list of Gmail thread IDs to retrieve. The function will automatically batch requests in chunks of 25.
@@ -1610,7 +1611,7 @@ async def manage_gmail_label(
 @require_google_service("gmail", "gmail_settings_basic")
 async def list_gmail_filters(service, user_google_email: str) -> str:
     """
-    Lists all Gmail filters configured in the user's mailbox.
+    Lists all Gmail filters configured in the user's mailbox. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1695,7 +1696,7 @@ async def manage_gmail_filter(
     filter_id: Optional[str] = None,
 ) -> str:
     """
-    Manages Gmail filters. Supports creating and deleting filters.
+    Manages Gmail filters. Supports creating and deleting filters. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1815,7 +1816,7 @@ async def batch_modify_gmail_message_labels(
     remove_label_ids: Optional[List[str]] = None,
 ) -> str:
     """
-    Adds or removes labels from multiple Gmail messages in a single batch request.
+    Adds or removes labels from multiple Gmail messages in a single batch request. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.

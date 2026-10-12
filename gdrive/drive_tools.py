@@ -62,7 +62,7 @@ async def get_drive_file_download_url(
     export_format: Optional[str] = None,
 ) -> str:
     """
-    Downloads a Google Drive file and saves it to local disk.
+    Downloads a Google Drive file and saves it to local disk. Not available in the official Google connectors.
 
     In stdio mode, returns the local file path for direct access.
     In HTTP mode, returns a temporary download URL (valid for 1 hour).
@@ -255,7 +255,11 @@ async def list_drive_items(
     detailed: bool = True,
 ) -> str:
     """
-    Lists files and folders, supporting shared drives.
+    List the full contents of a Drive folder or shared drive root by ID, including
+    shared drives (drive_id, corpora). Use this INSTEAD of search_files when browsing a
+    folder tree or a shared drive, or right after moving files (search_files index can
+    lag).
+
     If `drive_id` is specified, lists items within that shared drive. `folder_id` is then relative to that drive (or use drive_id as folder_id for root).
     If `drive_id` is not specified, lists items from user's "My Drive" and accessible shared drives (if `include_items_from_all_drives` is True).
 
@@ -397,8 +401,9 @@ async def create_drive_file(
     fileUrl: Optional[str] = None,  # Now explicitly Optional
 ) -> str:
     """
-    Creates a new file in Google Drive, supporting creation within shared drives.
-    Accepts either direct content or a fileUrl to fetch the content from.
+    Create a Drive file from a URL (http/https) without passing the content through the
+    conversation. Use this INSTEAD of Google Drive create_file when the source is a URL.
+    For text or small base64 content, use create_file.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1152,6 +1157,8 @@ async def get_drive_file_permissions(
 ) -> str:
     """
     Gets detailed metadata about a Google Drive file including sharing permissions.
+    Unlike Google Drive get_file_permissions, it returns permission IDs, which
+    manage_drive_access needs to update or revoke access.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1260,7 +1267,7 @@ async def check_drive_file_public_access(
     file_name: str,
 ) -> str:
     """
-    Searches for a file by name and checks if it has public link sharing enabled.
+    Searches for a file by name and checks if it has public link sharing enabled. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1370,7 +1377,10 @@ async def update_drive_file(
     properties: Optional[dict] = None,  # User-visible custom properties
 ) -> str:
     """
-    Updates metadata and properties of a Google Drive file.
+    Update Drive file metadata beyond title and folder. Use this INSTEAD of Google Drive
+    update_file when you need to star/unstar, change description, set custom properties,
+    writersCanShare or copyRequiresWriterPermission. For a plain rename or move,
+    update_file is enough.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -1604,7 +1614,12 @@ async def manage_drive_access(
     move_to_new_owners_root: bool = False,
 ) -> str:
     """
-    Consolidated tool for managing Google Drive file and folder access permissions.
+    Advanced Drive permission management. Use this INSTEAD of Google Drive share_file
+    whenever you need to: revoke access, downgrade a role (share_file silently ignores
+    downgrades), set or change an expiration date, share with a domain or "anyone",
+    grant to many recipients at once, or transfer ownership. Get permission IDs from
+    get_drive_file_permissions. For simply granting a user a higher role, share_file is
+    enough.
 
     Supports granting, batch-granting, updating, revoking permissions, and
     transferring file ownership -- all through a single entry point.
@@ -2036,7 +2051,7 @@ async def set_drive_file_permissions(
     copy_requires_writer_permission: Optional[bool] = None,
 ) -> str:
     """
-    Sets file-level sharing settings and controls link sharing for a Google Drive file or folder.
+    Sets file-level sharing settings and controls link sharing for a Google Drive file or folder. Not available in the official Google connectors.
 
     This is a high-level tool for the most common permission changes. Use this to toggle
     "anyone with the link" access or configure file-level sharing behavior. For managing

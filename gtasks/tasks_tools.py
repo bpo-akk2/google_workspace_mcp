@@ -106,7 +106,7 @@ async def list_task_lists(
     page_token: Optional[str] = None,
 ) -> str:
     """
-    List all task lists for the user.
+    List all task lists for the user. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -161,7 +161,7 @@ async def get_task_list(
     service: Resource, user_google_email: str, task_list_id: str
 ) -> str:
     """
-    Get details of a specific task list.
+    Get details of a specific task list. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -300,7 +300,7 @@ async def manage_task_list(
     title: Optional[str] = None,
 ) -> str:
     """
-    Manage task lists: create, update, delete, or clear completed tasks.
+    Manage task lists: create, update, delete, or clear completed tasks. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -376,7 +376,7 @@ async def list_tasks(
     updated_min: Optional[str] = None,
 ) -> str:
     """
-    List all tasks in a specific task list.
+    List all tasks in a specific task list. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -607,7 +607,7 @@ async def get_task(
     service: Resource, user_google_email: str, task_list_id: str, task_id: str
 ) -> str:
     """
-    Get details of a specific task.
+    Get details of a specific task. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -861,7 +861,7 @@ async def manage_task(
     destination_task_list: Optional[str] = None,
 ) -> str:
     """
-    Manage tasks: create, update, delete, or move tasks within task lists.
+    Manage tasks: create, update, delete, or move tasks within task lists. Not available in the official Google connectors.
 
     Args:
         user_google_email (str): The user's Google email address. Required.

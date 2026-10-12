@@ -529,7 +529,7 @@ async def insert_doc_image(
     height: int = 0,
 ) -> str:
     """
-    Inserts an image into a Google Doc from Drive or a URL.
+    Inserts an image into a Google Doc from Drive or a URL. Not available in the official Google connectors.
 
     Args:
         user_google_email: User's Google email address
@@ -754,7 +754,7 @@ async def inspect_doc_structure(
     tab_id: str = None,
 ) -> str:
     """
-    Essential tool for finding safe insertion points and understanding document structure.
+    Essential tool for finding safe insertion points and understanding document structure. Not available in the official Google connectors.
 
     USE THIS FOR:
     - Finding the correct index for table insertion
@@ -937,7 +937,7 @@ async def create_table_with_data(
     tab_id: Optional[str] = None,
 ) -> str:
     """
-    Creates a table and populates it with data in one reliable operation.
+    Creates a table and populates it with data in one reliable operation. Not available in the official Google connectors.
 
     CRITICAL: YOU MUST CALL inspect_doc_structure FIRST TO GET THE INDEX!
 
@@ -1034,7 +1034,7 @@ async def debug_table_structure(
     table_index: int = 0,
 ) -> str:
     """
-    ESSENTIAL DEBUGGING TOOL - Use this whenever tables don't work as expected.
+    ESSENTIAL DEBUGGING TOOL - Use this whenever tables don't work as expected. Not available in the official Google connectors.
 
     USE THIS IMMEDIATELY WHEN:
     - Table population put data in wrong cells
@@ -1122,7 +1122,7 @@ async def export_doc_to_pdf(
     folder_id: str = None,
 ) -> str:
     """
-    Exports a Google Doc to PDF format and saves it to Google Drive.
+    Exports a Google Doc to PDF format and saves it to Google Drive. Not available in the official Google connectors.
 
     Args:
         user_google_email: User's Google email address
@@ -1533,7 +1533,9 @@ async def get_doc_as_markdown(
     include_resolved: bool = False,
 ) -> str:
     """
-    Reads a Google Doc and returns it as clean Markdown with optional comment context.
+    Read a Google Doc as compact Markdown, optionally with comments inline. Prefer this
+    over Google Docs read_doc when you only need the content (read_doc returns very
+    large JSON with full styling). Use read_doc when you need exact indices for editing.
 
     Unlike get_doc_content which returns plain text, this tool preserves document
     formatting as Markdown: headings, bold/italic/strikethrough, links, code spans,
