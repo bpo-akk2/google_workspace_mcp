@@ -1,0 +1,46 @@
+# Named tool allowlists, selected with WORKSPACE_MCP_TOOLSET=<name>.
+#
+# A toolset is an explicit allowlist: only the tools listed here are exposed,
+# every other registered tool is removed from the server (hidden from
+# tools/list and rejected when called). Services that have no tool in the
+# toolset are not loaded at all, so their OAuth scopes are not requested.
+#
+# Unlike tool tiers (core/tool_tiers.yaml), toolsets are not cumulative and
+# can pick any combination of tools across services.
+
+# supplement: only what the official Anthropic Google connectors (Gmail,
+# Google Drive, Google Docs, Sheets, Slides, Calendar) cannot do, plus Google
+# Tasks, which has no official connector. Tools that duplicate the official
+# connectors stay in the code base but are not exposed.
+supplement:
+  gmail:
+    - get_gmail_attachment_content
+    - send_gmail_message
+    - get_gmail_messages_content_batch
+    - get_gmail_threads_content_batch
+    - batch_modify_gmail_message_labels
+    - list_gmail_filters
+    - manage_gmail_filter
+  drive:
+    - manage_drive_access
+    - set_drive_file_permissions
+    - get_drive_file_permissions
+    - check_drive_file_public_access
+    - update_drive_file
+    - list_drive_items
+    - create_drive_file
+    - get_drive_file_download_url
+  docs:
+    - export_doc_to_pdf
+    - insert_doc_image
+    - get_doc_as_markdown
+    - inspect_doc_structure
+    - debug_table_structure
+    - create_table_with_data
+  tasks:
+    - list_task_lists
+    - get_task_list
+    - manage_task_list
+    - list_tasks
+    - get_task
+    - manage_task

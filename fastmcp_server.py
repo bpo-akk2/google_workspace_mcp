@@ -4,6 +4,7 @@ FastMCP Cloud entrypoint for the Google Workspace MCP server.
 Enforces OAuth 2.1 + stateless defaults required by FastMCP-hosted deployments.
 """
 
+import importlib
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ from core.tool_registry import (
     filter_server_tools,
 )
 from auth.scopes import set_enabled_tools
+from core.toolset_loader import apply_toolset, get_toolset_name
 
 
 def enforce_fastmcp_cloud_defaults():
@@ -138,30 +140,42 @@ else:
 # Set transport mode for HTTP (FastMCP CLI defaults to streamable-http)
 set_transport_mode("streamable-http")
 
-# Import all tool modules to register their @server.tool() decorators
-import gmail.gmail_tools
-import gdrive.drive_tools
-import gdocs.docs_tools
-import gsheets.sheets_tools
-import gslides.slides_tools
-import gtasks.tasks_tools
-
-# Configure tool registration
-wrap_server_tool_method(server)
-
 # Enable all tools and services by default
 all_services = [
     "gmail",
     "drive",
     "docs",
     "sheets",
-    "chat",
-    "forms",
     "slides",
     "tasks",
 ]
+enabled_tool_names = None  # Don't filter individual tools - enable all
+
+# Optional named allowlist (WORKSPACE_MCP_TOOLSET), see core/toolsets.yaml
+_toolset_name = get_toolset_name()
+if _toolset_name is not None:
+    all_services, enabled_tool_names = apply_toolset(
+        _toolset_name, all_services, None
+    )
+    logger.info("Toolset '%s' active for services %s", _toolset_name, all_services)
+
+# Configure tool registration
+wrap_server_tool_method(server)
+
+# Import tool modules to register their @server.tool() decorators
+_tool_modules = {
+    "gmail": "gmail.gmail_tools",
+    "drive": "gdrive.drive_tools",
+    "docs": "gdocs.docs_tools",
+    "sheets": "gsheets.sheets_tools",
+    "slides": "gslides.slides_tools",
+    "tasks": "gtasks.tasks_tools",
+}
+for _service in all_services:
+    importlib.import_module(_tool_modules[_service])
+
 set_enabled_tools(all_services)  # Set enabled services for scopes
-set_enabled_tool_names(None)  # Don't filter individual tools - enable all
+set_enabled_tool_names(enabled_tool_names)
 
 # Filter tools based on configuration
 filter_server_tools(server)

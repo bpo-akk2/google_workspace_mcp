@@ -27,7 +27,14 @@ from core.log_formatter import EnhancedLogFormatter, configure_file_logging  # n
 from core.utils import check_credentials_directory_permissions  # noqa: E402
 from core.server import server, set_transport_mode, configure_server_for_http  # noqa: E402
 from core.tool_tier_loader import resolve_tools_from_tier  # noqa: E402
+from core.toolset_loader import (  # noqa: E402
+    ALWAYS_ALLOWED_TOOLS,
+    apply_toolset,
+    get_toolset_name,
+)
 from core.tool_registry import (  # noqa: E402
+    get_enabled_tools as get_enabled_tool_names,
+    get_tool_components,
     set_enabled_tools as set_enabled_tool_names,
     wrap_server_tool_method,
     filter_server_tools,
@@ -394,6 +401,24 @@ def main():
         # Don't filter individual tools when importing all
         set_enabled_tool_names(None)
 
+    # Optional named allowlist (WORKSPACE_MCP_TOOLSET), applied on top of the
+    # selection above. Services without allowlisted tools are not imported.
+    toolset_name = get_toolset_name()
+    if toolset_name is not None:
+        try:
+            tools_to_import, toolset_filter = apply_toolset(
+                toolset_name, list(tools_to_import), get_enabled_tool_names()
+            )
+        except (ValueError, FileNotFoundError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        set_enabled_tool_names(toolset_filter)
+        if perms:
+            from auth.permissions import set_permissions
+
+            perms = narrow_permissions_to_services(perms, tools_to_import)
+            set_permissions(perms)
+
     wrap_server_tool_method(server)
 
     from auth.scopes import set_enabled_tools, set_read_only
@@ -421,8 +446,27 @@ def main():
             safe_print(f"   {tool_icons.get(svc, '  ')} {svc}: {lvl}")
     safe_print("")
 
-    # Filter tools based on tier configuration (if tier-based loading is enabled)
+    # Filter tools based on tier/toolset configuration (if enabled)
     filter_server_tools(server)
+
+    exposed_tools = get_tool_components(server)
+    if toolset_name is not None:
+        missing = sorted(
+            name
+            for name in (get_enabled_tool_names() or set())
+            if name not in exposed_tools and name not in ALWAYS_ALLOWED_TOOLS
+        )
+        if missing:
+            logger.warning(
+                "Toolset '%s': allowlisted tools not registered: %s",
+                toolset_name,
+                missing,
+            )
+        logger.info(
+            "Toolset '%s' active: exposing %d tools", toolset_name, len(exposed_tools)
+        )
+    else:
+        logger.info("Exposing %d tools", len(exposed_tools))
 
     # Handle CLI mode - execute tool and exit
     if args.cli is not None:
@@ -435,6 +479,8 @@ def main():
 
     safe_print("📊 Configuration Summary:")
     safe_print(f"   🔧 Services Loaded: {len(tools_to_import)}/{len(tool_imports)}")
+    if toolset_name is not None:
+        safe_print(f"   🧩 Toolset: {toolset_name} ({len(exposed_tools)} tools exposed)")
     if args.tool_tier is not None:
         if args.tools is not None:
             safe_print(
