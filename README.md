@@ -27,6 +27,80 @@
 
 ---
 
+## When to use this MCP instead of the official connectors
+
+This fork is meant to run **next to** the official Anthropic Google connectors (Google Drive, Gmail, Google Docs, Sheets, Slides, Calendar). Use the official connectors by default. Use this server only for what they cannot do, plus Google Tasks, which has no official connector.
+
+Start it with `WORKSPACE_MCP_TOOLSET=supplement` to expose exactly these 27 tools (see [Toolsets](#toolsets-workspace_mcp_toolset)). Every other tool stays in the code base but is hidden and rejected when called.
+
+### Gmail
+
+| Tool | Why it stays (official connector gap) |
+|---|---|
+| `get_gmail_attachment_content` | The official connector returns only attachment metadata. |
+| `send_gmail_message` | Sends from a "Send as" alias (`from_email`, `from_name`) and attaches Drive files by ID (`drive_file_ids`). |
+| `get_gmail_messages_content_batch` | No batch operations in the official connector. |
+| `get_gmail_threads_content_batch` | No batch operations in the official connector. |
+| `batch_modify_gmail_message_labels` | No batch operations in the official connector. |
+| `list_gmail_filters` | The official connector has no filter tools. |
+| `manage_gmail_filter` | The official connector has no filter tools. |
+
+### Drive (access administration)
+
+| Tool | Why it stays (official connector gap) |
+|---|---|
+| `manage_drive_access` | Revoke and downgrade access, expiration dates, domain / anyone grants, ownership transfer. The official `share_file` silently ignores downgrades. |
+| `set_drive_file_permissions` | Link sharing, `writersCanShare`, `copyRequiresWriterPermission`. |
+| `get_drive_file_permissions` | Returns the **permission ID** needed to revoke or update access. The official tool does not. |
+| `check_drive_file_public_access` | Audits public link sharing in one call (complements access administration). |
+| `update_drive_file` | Star, description, custom properties, sharing settings. Rename and move are in the official `update_file`. |
+| `list_drive_items` | Lists shared drives by `drive_id` and folders without search index lag. |
+| `create_drive_file` | Creates a file from a URL without passing content through the conversation. |
+| `get_drive_file_download_url` | Downloads large files through a link instead of base64 in the context. |
+
+### Docs
+
+| Tool | Why it stays (official connector gap) |
+|---|---|
+| `export_doc_to_pdf` | Exports a PDF and saves it to Drive (practically impossible with the official tools). |
+| `insert_doc_image` | Inserts images from private Drive files (the official tool needs a public URL). |
+| `get_doc_as_markdown` | Compact read with comments; the official `read_doc` returns very large JSON. |
+| `inspect_doc_structure` | Fewer index errors and less context when working with tables. |
+| `debug_table_structure` | Fewer index errors and less context when working with tables. |
+| `create_table_with_data` | Fewer index errors and less context when working with tables. |
+
+### Tasks (complete)
+
+`list_task_lists`, `get_task_list`, `manage_task_list`, `list_tasks`, `get_task`, `manage_task`. There is no official Google Tasks connector.
+
+### Routing hint for users with both connectors
+
+```
+Google Workspace: use the official Google connectors (Drive, Gmail, Docs, Sheets, Slides, Calendar) by default.
+Use the custom Google Workspace MCP only when you:
+- change or revoke Drive permissions, set an expiration, link sharing or transfer ownership,
+- send email from an alias or with a Drive attachment, read attachment content, act on many emails at once, or manage filters,
+- export a Doc to PDF on Drive or insert an image from a private Drive file,
+- work with Google Tasks.
+After every permission change, verify the result with get_drive_file_permissions.
+```
+
+### Toolsets (`WORKSPACE_MCP_TOOLSET`)
+
+| Value | Effect |
+|---|---|
+| unset, `full` or `all` | Default. All registered tools, filtered only by `--tools`, `--tool-tier`, `--read-only` or `--permissions`. |
+| `supplement` | Only the 27 tools above. Services without a listed tool (Sheets, Slides) are not loaded, so their OAuth scopes are not requested. |
+
+Toolsets are explicit allowlists defined in [`core/toolsets.yaml`](core/toolsets.yaml). Unlike tool tiers they are not cumulative and can pick any tools across services. A toolset is applied on top of `--tools`, `--tool-tier` and `--permissions` (intersection). Tools outside the allowlist are removed from the server, so they are missing from `tools/list` and calls to them fail as unknown tools. With legacy OAuth 2.0 the `start_google_auth` helper also stays available; with OAuth 2.1 it is always removed. An unknown value stops the server with an error.
+
+```bash
+WORKSPACE_MCP_TOOLSET=supplement uv run main.py --transport streamable-http
+docker run -e WORKSPACE_MCP_TOOLSET=supplement workspace-mcp
+```
+
+---
+
 
 **See it in action:**
 <div align="center">
@@ -155,6 +229,7 @@ uv run main.py --tools gmail drive
 |----------|---------|
 | `USER_GOOGLE_EMAIL` | Default email for single-user auth |
 | `MCP_ENABLE_OAUTH21` | Set to `true` for OAuth 2.1 support |
+| `WORKSPACE_MCP_TOOLSET` | `supplement` exposes only the tools the official Google connectors lack (see [Toolsets](#toolsets-workspace_mcp_toolset)) |
 | `EXTERNAL_OAUTH21_PROVIDER` | Set to `true` for external OAuth flow with bearer tokens (requires OAuth 2.1) |
 | `WORKSPACE_MCP_STATELESS_MODE` | Set to `true` for stateless operation (requires OAuth 2.1) |
 
@@ -625,6 +700,7 @@ Full API access including comments, headers/footers, publishing settings, and ad
 <span style="color:#72898f">▶</span> **Tiers are cumulative** – each includes all previous
 <span style="color:#72898f">▶</span> **Mix and match** with `--tools` for specific services
 <span style="color:#72898f">▶</span> **Configuration** in `core/tool_tiers.yaml`
+<span style="color:#72898f">▶</span> **Arbitrary allowlists**: use `WORKSPACE_MCP_TOOLSET` ([Toolsets](#toolsets-workspace_mcp_toolset))
 <span style="color:#72898f">▶</span> **Authentication** included in all tiers
 
 </td>
@@ -762,7 +838,7 @@ cp .env.oauth21 .env
 | `search_gmail_messages` | **Core** | Search with Gmail operators |
 | `get_gmail_message_content` | **Core** | Retrieve message content |
 | `get_gmail_messages_content_batch` | **Core** | Batch retrieve message content |
-| `send_gmail_message` | **Core** | Send emails |
+| `send_gmail_message` | **Core** | Send emails (alias, local/base64/Drive attachments) |
 | `get_gmail_thread_content` | Extended | Get full thread content |
 | `modify_gmail_message_labels` | Extended | Modify message labels |
 | `list_gmail_labels` | Extended | List available labels |
@@ -777,7 +853,7 @@ cp .env.oauth21 .env
 <details>
 <summary><b>📎 Email Attachments</b> <sub><sup>← Send emails with files</sup></sub></summary>
 
-Both `send_gmail_message` and `draft_gmail_message` support attachments via two methods:
+`send_gmail_message` supports attachments via three methods:
 
 **Option 1: File Path** (local server only)
 ```python
@@ -794,7 +870,13 @@ attachments=[{
 }]
 ```
 
-**⚠️ Centrally Hosted Servers**: When the MCP server runs remotely (cloud, shared instance), it cannot access your local filesystem. Use **Option 2** with base64-encoded content. Your MCP client must encode files before sending.
+**Option 3: Google Drive files** (works everywhere, `send_gmail_message`)
+```python
+drive_file_ids=["1AbCdEfGhIjKlMnOpQrStUvWxYz"]
+```
+The server downloads the files with the caller's own Drive access (needs the Drive read scope). Google Docs, Slides and Drawings are attached as PDF, Google Sheets as XLSX, other files as stored. All attachments together are limited to 25 MB; messages over 5 MB are sent through Gmail's upload endpoint.
+
+**⚠️ Centrally Hosted Servers**: When the MCP server runs remotely (cloud, shared instance), it cannot access your local filesystem. Use **Option 3** for files on Drive, or **Option 2** with base64-encoded content. Your MCP client must encode files before sending.
 
 </details>
 
