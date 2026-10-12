@@ -154,9 +154,7 @@ enabled_tool_names = None  # Don't filter individual tools - enable all
 # Optional named allowlist (WORKSPACE_MCP_TOOLSET), see core/toolsets.yaml
 _toolset_name = get_toolset_name()
 if _toolset_name is not None:
-    all_services, enabled_tool_names = apply_toolset(
-        _toolset_name, all_services, None
-    )
+    all_services, enabled_tool_names = apply_toolset(_toolset_name, all_services, None)
     logger.info("Toolset '%s' active for services %s", _toolset_name, all_services)
 
 # Configure tool registration

@@ -25,11 +25,10 @@ from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from auth.service_decorator import require_google_service
 from auth.oauth_config import is_stateless_mode
 from core.attachment_storage import get_attachment_storage, get_attachment_url
-from core.utils import extract_office_xml_text, handle_http_errors, validate_file_path
+from core.utils import handle_http_errors, validate_file_path
 from core.server import server
 from core.config import get_transport_mode
 from gdrive.drive_helpers import (
-    DRIVE_QUERY_PATTERNS,
     FOLDER_MIME_TYPE,
     build_drive_list_params,
     check_public_link_permission,

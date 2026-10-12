@@ -672,6 +672,46 @@ def require_google_service(
     return decorator
 
 
+async def get_additional_google_service(
+    service_type: str,
+    scopes: Union[str, List[str]],
+    tool_name: str,
+    user_google_email: str,
+    version: Optional[str] = None,
+) -> Any:
+    """
+    Authenticate an extra Google service inside a tool that already runs under
+    @require_google_service, using the same OAuth path (2.0 or 2.1) and the
+    same user.
+
+    Use this for scopes a tool needs only for an optional parameter, so the
+    scope does not become a hard requirement of the tool (and does not affect
+    tool filtering in read-only or granular permission modes). The caller must
+    close the returned service.
+
+    Raises:
+        GoogleAuthenticationError: if the user's credentials lack ``scopes``.
+    """
+    if service_type not in SERVICE_CONFIGS:
+        raise Exception(f"Unknown service type: {service_type}")
+
+    authenticated_user, _, mcp_session_id = await _get_auth_context(tool_name)
+    use_oauth21 = _detect_oauth_version(authenticated_user, mcp_session_id, tool_name)
+    config = SERVICE_CONFIGS[service_type]
+
+    service, _ = await _authenticate_service(
+        use_oauth21,
+        config["service"],
+        version or config["version"],
+        tool_name,
+        user_google_email,
+        _resolve_scopes(scopes),
+        mcp_session_id,
+        authenticated_user,
+    )
+    return service
+
+
 def require_multiple_services(service_configs: List[Dict[str, Any]]):
     """
     Decorator for functions that need multiple Google services.

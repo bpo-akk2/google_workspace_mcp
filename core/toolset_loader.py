@@ -51,7 +51,9 @@ def get_toolset_name(value: Optional[str] = None) -> Optional[str]:
     return name
 
 
-def load_toolsets(config_path: Optional[Path] = None) -> Dict[str, Dict[str, List[str]]]:
+def load_toolsets(
+    config_path: Optional[Path] = None,
+) -> Dict[str, Dict[str, List[str]]]:
     """Load and validate all toolset definitions."""
     path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
     if not path.exists():

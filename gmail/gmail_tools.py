@@ -7,6 +7,7 @@ This module provides MCP tools for interacting with the Gmail API.
 import logging
 import asyncio
 import base64
+import io
 import re
 import ssl
 import mimetypes
@@ -21,13 +22,14 @@ from email.utils import formataddr
 
 from pydantic import Field
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseUpload
 
-from auth.service_decorator import require_google_service
+from auth.service_decorator import get_additional_google_service, require_google_service
 from core.utils import handle_http_errors, validate_file_path, UserInputError
 from core.server import server
+from gdrive.drive_helpers import fetch_drive_files_as_attachments
 from auth.scopes import (
     GMAIL_SEND_SCOPE,
-    GMAIL_COMPOSE_SCOPE,
     GMAIL_MODIFY_SCOPE,
     GMAIL_LABELS_SCOPE,
 )
@@ -35,6 +37,9 @@ from auth.scopes import (
 logger = logging.getLogger(__name__)
 
 GMAIL_BATCH_SIZE = 25
+# Raw messages above this size are sent through the media upload endpoint,
+# which accepts messages up to 35 MB (the plain JSON request does not).
+GMAIL_SIMPLE_SEND_MAX_BYTES = 5 * 1024 * 1024
 GMAIL_REQUEST_DELAY = 0.1
 HTML_BODY_TRUNCATE_LIMIT = 20000
 
@@ -539,7 +544,7 @@ def _prepare_gmail_message(
     body_format: Literal["plain", "html"] = "plain",
     from_email: Optional[str] = None,
     from_name: Optional[str] = None,
-    attachments: Optional[List[Dict[str, str]]] = None,
+    attachments: Optional[List[Dict[str, Any]]] = None,
 ) -> tuple[str, Optional[str], int]:
     """
     Prepare a Gmail message with threading and attachment support.
@@ -557,6 +562,7 @@ def _prepare_gmail_message(
         from_email: Optional sender email address
         from_name: Optional sender display name (e.g., "Peter Hartree")
         attachments: Optional list of attachments. Each can have 'path' (file path) OR 'content' (base64) + 'filename'
+            OR 'data' (raw bytes, internal use) + 'filename'
 
     Returns:
         Tuple of (raw_message, thread_id, attached_count) where raw_message is base64 encoded
@@ -582,6 +588,7 @@ def _prepare_gmail_message(
             file_path = attachment.get("path")
             filename = attachment.get("filename")
             content_base64 = attachment.get("content")
+            raw_data = attachment.get("data")
             mime_type = attachment.get("mime_type")
 
             try:
@@ -605,6 +612,17 @@ def _prepare_gmail_message(
                         mime_type, _ = mimetypes.guess_type(str(path_obj))
                         if not mime_type:
                             mime_type = "application/octet-stream"
+
+                # Raw bytes (e.g. files fetched from Google Drive)
+                elif isinstance(raw_data, (bytes, bytearray)):
+                    if not filename:
+                        logger.warning("Skipping attachment: missing filename")
+                        continue
+
+                    file_data = bytes(raw_data)
+
+                    if not mime_type:
+                        mime_type = "application/octet-stream"
 
                 # If content is provided (base64), decode it
                 elif content_base64:
@@ -684,6 +702,69 @@ def _prepare_gmail_message(
     raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
     return raw_message, thread_id, attached_count
+
+
+def _estimate_attachment_bytes(attachments: Optional[List[Dict[str, Any]]]) -> int:
+    """Best-effort decoded size of path/base64 attachments (for size limits)."""
+    total = 0
+    for attachment in attachments or []:
+        try:
+            if attachment.get("path"):
+                path_obj = validate_file_path(attachment["path"])
+                if path_obj.exists():
+                    total += path_obj.stat().st_size
+            elif attachment.get("content"):
+                total += len(attachment["content"]) * 3 // 4
+        except Exception:
+            # Invalid entries are reported by _prepare_gmail_message.
+            continue
+    return total
+
+
+def _build_send_request(service, raw_message: str, thread_id: Optional[str]):
+    """Build a messages.send request, using media upload for large messages."""
+    metadata: Dict[str, Any] = {}
+    if thread_id:
+        metadata["threadId"] = thread_id
+
+    if len(raw_message) <= GMAIL_SIMPLE_SEND_MAX_BYTES:
+        metadata["raw"] = raw_message
+        return service.users().messages().send(userId="me", body=metadata)
+
+    media = MediaIoBaseUpload(
+        io.BytesIO(base64.urlsafe_b64decode(raw_message)),
+        mimetype="message/rfc822",
+        resumable=True,
+    )
+    return (
+        service.users()
+        .messages()
+        .send(userId="me", body=metadata or None, media_body=media)
+    )
+
+
+async def _fetch_drive_attachments(
+    drive_file_ids: List[str],
+    user_google_email: str,
+    tool_name: str,
+    other_attachments: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Download Drive files with the caller's Drive credentials as attachments."""
+    drive_service = await get_additional_google_service(
+        "drive", "drive_read", tool_name, user_google_email
+    )
+    try:
+        fetched = await fetch_drive_files_as_attachments(
+            drive_service,
+            drive_file_ids,
+            already_used_bytes=_estimate_attachment_bytes(other_attachments),
+        )
+    finally:
+        drive_service.close()
+    return [
+        {"filename": f["filename"], "mime_type": f["mime_type"], "data": f["data"]}
+        for f in fetched
+    ]
 
 
 def _generate_gmail_web_url(item_id: str, account_index: int = 0) -> str:
@@ -1224,6 +1305,12 @@ async def send_gmail_message(
             description='Optional list of attachments. Each can have: "path" (file path, auto-encodes), OR "content" (standard base64, not urlsafe) + "filename". Optional "mime_type". Example: [{"path": "/path/to/file.pdf"}] or [{"filename": "doc.pdf", "content": "base64data", "mime_type": "application/pdf"}]',
         ),
     ] = None,
+    drive_file_ids: Annotated[
+        Optional[List[str]],
+        Field(
+            description="Optional Google Drive file IDs to attach. The server downloads them with your own Drive access, so file content never passes through the conversation. Google Docs, Slides and Drawings are attached as PDF, Google Sheets as XLSX, other files as stored. All attachments together are limited to 25 MB.",
+        ),
+    ] = None,
 ) -> str:
     """
     Send email with options the Gmail connector lacks. Use this INSTEAD of Gmail
@@ -1244,6 +1331,10 @@ async def send_gmail_message(
               - 'content' (required): Standard base64-encoded file content (not urlsafe)
               - 'filename' (required): Name of the file
               - 'mime_type' (optional): MIME type (defaults to 'application/octet-stream')
+        drive_file_ids (Optional[List[str]]): Optional Google Drive file IDs to attach. Files are
+            downloaded server-side with the user's Drive access. Google Docs, Slides and Drawings
+            are exported to PDF, Google Sheets to XLSX, other files are attached as stored.
+            All attachments together must not exceed 25 MB.
         cc (Optional[str]): Optional CC email address.
         bcc (Optional[str]): Optional BCC email address.
         from_name (Optional[str]): Optional sender display name. If provided, the From header will be formatted as 'Name <email>'.
@@ -1312,6 +1403,14 @@ async def send_gmail_message(
             }]
         )
 
+        # Attach files straight from Google Drive (Docs are sent as PDF)
+        send_gmail_message(
+            to="user@example.com",
+            subject="Proposal",
+            body="Please find the proposal attached.",
+            drive_file_ids=["1AbCdEfGhIjKlMnOpQrStUvWxYz"]
+        )
+
         # Send a reply
         send_gmail_message(
             to="user@example.com",
@@ -1323,8 +1422,18 @@ async def send_gmail_message(
         )
     """
     logger.info(
-        f"[send_gmail_message] Invoked. Email: '{user_google_email}', Subject: '{subject}', Attachments: {len(attachments) if attachments else 0}"
+        f"[send_gmail_message] Invoked. Email: '{user_google_email}', Subject: '{subject}', "
+        f"Attachments: {len(attachments) if attachments else 0}, "
+        f"Drive attachments: {len(drive_file_ids) if drive_file_ids else 0}"
     )
+
+    all_attachments: List[Dict[str, Any]] = list(attachments or [])
+    if drive_file_ids:
+        all_attachments.extend(
+            await _fetch_drive_attachments(
+                drive_file_ids, user_google_email, "send_gmail_message", attachments
+            )
+        )
 
     # Prepare the email message
     # Use from_email (Send As alias) if provided, otherwise default to authenticated user
@@ -1341,24 +1450,18 @@ async def send_gmail_message(
         body_format=body_format,
         from_email=sender_email,
         from_name=from_name,
-        attachments=attachments if attachments else None,
+        attachments=all_attachments if all_attachments else None,
     )
 
-    requested_attachment_count = len(attachments or [])
+    requested_attachment_count = len(all_attachments)
     if requested_attachment_count > 0 and attached_count == 0:
         raise UserInputError(
             "No valid attachments were added. Verify each attachment path/content and retry."
         )
 
-    send_body = {"raw": raw_message}
-
-    # Associate with thread if provided
-    if thread_id_final:
-        send_body["threadId"] = thread_id_final
-
-    # Send the message
+    # Send the message (associated with the thread if provided)
     sent_message = await asyncio.to_thread(
-        service.users().messages().send(userId="me", body=send_body).execute
+        _build_send_request(service, raw_message, thread_id_final).execute
     )
     message_id = sent_message.get("id")
 
@@ -1368,6 +1471,91 @@ async def send_gmail_message(
         )
         return f"Email sent{attachment_info}! Message ID: {message_id}"
     return f"Email sent! Message ID: {message_id}"
+
+
+def _format_thread_content(thread_data: dict, thread_id: str) -> str:
+    """
+    Helper function to format thread content from Gmail API response.
+
+    Args:
+        thread_data (dict): Thread data from Gmail API
+        thread_id (str): Thread ID for display
+
+    Returns:
+        str: Formatted thread content
+    """
+    messages = thread_data.get("messages", [])
+    if not messages:
+        return f"No messages found in thread '{thread_id}'."
+
+    # Extract thread subject from the first message
+    first_message = messages[0]
+    first_headers = {
+        h["name"]: h["value"]
+        for h in first_message.get("payload", {}).get("headers", [])
+    }
+    thread_subject = first_headers.get("Subject", "(no subject)")
+
+    # Build the thread content
+    content_lines = [
+        f"Thread ID: {thread_id}",
+        f"Subject: {thread_subject}",
+        f"Messages: {len(messages)}",
+        "",
+    ]
+
+    # Process each message in the thread
+    for i, message in enumerate(messages, 1):
+        # Extract headers
+        headers = {
+            h["name"]: h["value"] for h in message.get("payload", {}).get("headers", [])
+        }
+
+        sender = headers.get("From", "(unknown sender)")
+        date = headers.get("Date", "(unknown date)")
+        subject = headers.get("Subject", "(no subject)")
+        rfc822_message_id = headers.get("Message-ID", "")
+        in_reply_to = headers.get("In-Reply-To", "")
+        references = headers.get("References", "")
+
+        # Extract both text and HTML bodies
+        payload = message.get("payload", {})
+        bodies = _extract_message_bodies(payload)
+        text_body = bodies.get("text", "")
+        html_body = bodies.get("html", "")
+
+        # Format body content with HTML fallback
+        body_data = _format_body_content(text_body, html_body)
+
+        # Add message to content
+        content_lines.extend(
+            [
+                f"=== Message {i} ===",
+                f"From: {sender}",
+                f"Date: {date}",
+            ]
+        )
+
+        if rfc822_message_id:
+            content_lines.append(f"Message-ID: {rfc822_message_id}")
+        if in_reply_to:
+            content_lines.append(f"In-Reply-To: {in_reply_to}")
+        if references:
+            content_lines.append(f"References: {references}")
+
+        # Only show subject if it's different from thread subject
+        if subject != thread_subject:
+            content_lines.append(f"Subject: {subject}")
+
+        content_lines.extend(
+            [
+                "",
+                body_data,
+                "",
+            ]
+        )
+
+    return "\n".join(content_lines)
 
 
 @server.tool()

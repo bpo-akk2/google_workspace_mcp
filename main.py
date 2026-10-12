@@ -480,7 +480,9 @@ def main():
     safe_print("📊 Configuration Summary:")
     safe_print(f"   🔧 Services Loaded: {len(tools_to_import)}/{len(tool_imports)}")
     if toolset_name is not None:
-        safe_print(f"   🧩 Toolset: {toolset_name} ({len(exposed_tools)} tools exposed)")
+        safe_print(
+            f"   🧩 Toolset: {toolset_name} ({len(exposed_tools)} tools exposed)"
+        )
     if args.tool_tier is not None:
         if args.tools is not None:
             safe_print(

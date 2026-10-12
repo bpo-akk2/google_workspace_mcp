@@ -308,7 +308,11 @@ async def test_removed_tools_are_not_registered():
 
 
 def test_removed_scopes_are_not_requested():
-    from auth.scopes import TOOL_SCOPES_MAP, get_all_read_only_scopes, get_scopes_for_tools
+    from auth.scopes import (
+        TOOL_SCOPES_MAP,
+        get_all_read_only_scopes,
+        get_scopes_for_tools,
+    )
 
     all_scopes = set(get_scopes_for_tools(None)) | set(get_all_read_only_scopes())
     assert not [s for s in all_scopes if "/auth/script." in s]

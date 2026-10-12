@@ -5,8 +5,14 @@ Shared utilities for Google Drive operations including permission checking.
 """
 
 import asyncio
+import io
 import re
 from typing import List, Dict, Any, Optional, Tuple
+
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload
+
+from core.utils import UserInputError
 
 VALID_SHARE_ROLES = {"reader", "commenter", "writer"}
 VALID_SHARE_TYPES = {"user", "group", "domain", "anyone"}
@@ -373,3 +379,174 @@ async def resolve_folder_id(
             f"Resolved ID '{resolved_id}' (from '{folder_id}') is not a folder; mimeType={mime_type}."
         )
     return resolved_id
+
+
+# ---------------------------------------------------------------------------
+# Drive files as email attachments
+# ---------------------------------------------------------------------------
+
+# Gmail rejects messages whose attachments exceed 25 MB in total.
+GMAIL_MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+
+# Export formats used when a Google-native file is attached to an email.
+GOOGLE_NATIVE_ATTACHMENT_EXPORTS: Dict[str, Tuple[str, str]] = {
+    "application/vnd.google-apps.document": ("application/pdf", ".pdf"),
+    "application/vnd.google-apps.presentation": ("application/pdf", ".pdf"),
+    "application/vnd.google-apps.drawing": ("application/pdf", ".pdf"),
+    "application/vnd.google-apps.spreadsheet": (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xlsx",
+    ),
+}
+
+_DOWNLOAD_CHUNK_SIZE = 4 * 1024 * 1024
+
+
+def _format_megabytes(size_bytes: int) -> str:
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _attachment_filename(name: str, extension: str) -> str:
+    """Return ``name`` with ``extension`` unless it already ends with it."""
+    clean = (name or "attachment").replace("/", "_").strip() or "attachment"
+    if extension and not clean.lower().endswith(extension):
+        return f"{clean}{extension}"
+    return clean
+
+
+def _size_limit_error(
+    total_bytes: int, max_total_bytes: int, *, at_least: bool = False
+) -> UserInputError:
+    size = _format_megabytes(total_bytes)
+    if at_least:
+        size = f"more than {size}"
+    return UserInputError(
+        f"Attachments exceed the Gmail size limit of {_format_megabytes(max_total_bytes)} "
+        f"in total ({size}). Share a Drive link in the message body instead, or attach "
+        "fewer or smaller files."
+    )
+
+
+def _download_to_bytes(request, budget_bytes: int) -> Tuple[bytes, bool]:
+    """Download a media request in chunks, stopping once it exceeds the budget.
+
+    Returns (data, exceeded). When exceeded is True, data is incomplete.
+    """
+    buffer = io.BytesIO()
+    downloader = MediaIoBaseDownload(buffer, request, chunksize=_DOWNLOAD_CHUNK_SIZE)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+        if buffer.tell() > budget_bytes:
+            return buffer.getvalue(), True
+    return buffer.getvalue(), False
+
+
+async def fetch_drive_files_as_attachments(
+    service,
+    file_ids: List[str],
+    *,
+    max_total_bytes: int = GMAIL_MAX_ATTACHMENT_BYTES,
+    already_used_bytes: int = 0,
+) -> List[Dict[str, Any]]:
+    """
+    Download Drive files so they can be attached to an email.
+
+    Google Docs, Slides and Drawings are exported to PDF and Google Sheets to
+    XLSX; all other files are downloaded as stored. Shortcuts are resolved.
+
+    Args:
+        service: Authenticated Drive v3 service of the calling user.
+        file_ids: Drive file IDs to attach.
+        max_total_bytes: Size budget for all attachments of the message.
+        already_used_bytes: Bytes already taken by other attachments.
+
+    Returns:
+        List of dicts with ``filename``, ``mime_type``, ``data`` (bytes) and
+        ``file_id``.
+
+    Raises:
+        UserInputError: when a file cannot be read or exported, or when the
+            total size would exceed ``max_total_bytes``.
+    """
+    attachments: List[Dict[str, Any]] = []
+    total_bytes = already_used_bytes
+
+    for raw_id in file_ids:
+        file_id = (raw_id or "").strip()
+        if not file_id:
+            raise UserInputError("drive_file_ids contains an empty file ID.")
+
+        try:
+            resolved_id, metadata = await resolve_drive_item(
+                service, file_id, extra_fields="name, size"
+            )
+        except HttpError as error:
+            status = getattr(getattr(error, "resp", None), "status", None)
+            if status in (403, 404):
+                raise UserInputError(
+                    f"Google Drive file '{file_id}' was not found or you do not have access to it."
+                ) from error
+            raise
+
+        mime_type = metadata.get("mimeType", "") or "application/octet-stream"
+        name = metadata.get("name") or file_id
+
+        if mime_type == FOLDER_MIME_TYPE:
+            raise UserInputError(
+                f"Google Drive item '{name}' ({file_id}) is a folder and cannot be attached."
+            )
+
+        export = GOOGLE_NATIVE_ATTACHMENT_EXPORTS.get(mime_type)
+        if export:
+            output_mime_type, extension = export
+            filename = _attachment_filename(name, extension)
+            request = service.files().export_media(
+                fileId=resolved_id, mimeType=output_mime_type
+            )
+        elif mime_type.startswith("application/vnd.google-apps."):
+            raise UserInputError(
+                f"Google Drive item '{name}' ({file_id}) has type {mime_type}, "
+                "which cannot be attached to an email."
+            )
+        else:
+            output_mime_type = mime_type
+            filename = _attachment_filename(name, "")
+            declared_size = int(metadata.get("size") or 0)
+            if total_bytes + declared_size > max_total_bytes:
+                raise _size_limit_error(total_bytes + declared_size, max_total_bytes)
+            request = service.files().get_media(
+                fileId=resolved_id, supportsAllDrives=True
+            )
+
+        try:
+            data, exceeded = await asyncio.to_thread(
+                _download_to_bytes, request, max_total_bytes - total_bytes
+            )
+        except HttpError as error:
+            status = getattr(getattr(error, "resp", None), "status", None)
+            if export and status == 403 and "exportSizeLimitExceeded" in str(error):
+                raise UserInputError(
+                    f"Google Drive file '{name}' is too large to export as an attachment. "
+                    "Share a Drive link in the message body instead."
+                ) from error
+            if status in (403, 404):
+                raise UserInputError(
+                    f"Could not download Google Drive file '{name}' ({file_id}): {error}"
+                ) from error
+            raise
+
+        total_bytes += len(data)
+        if exceeded or total_bytes > max_total_bytes:
+            raise _size_limit_error(total_bytes, max_total_bytes, at_least=exceeded)
+
+        attachments.append(
+            {
+                "file_id": resolved_id,
+                "filename": filename,
+                "mime_type": output_mime_type,
+                "data": data,
+            }
+        )
+
+    return attachments
