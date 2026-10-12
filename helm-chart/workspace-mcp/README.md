@@ -117,7 +117,6 @@ You can selectively enable tools using the `tools.enabled` parameter:
 - `forms` - Google Forms integration
 - `tasks` - Google Tasks integration
 - `chat` - Google Chat integration
-- `search` - Google Custom Search integration
 
 If `tools.enabled` is empty or not set, all tools will be enabled.
 

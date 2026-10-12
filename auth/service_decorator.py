@@ -33,19 +33,12 @@ from auth.scopes import (
     DRIVE_FILE_SCOPE,
     DOCS_READONLY_SCOPE,
     DOCS_WRITE_SCOPE,
-    CALENDAR_READONLY_SCOPE,
-    CALENDAR_EVENTS_SCOPE,
     SHEETS_READONLY_SCOPE,
     SHEETS_WRITE_SCOPE,
     SLIDES_SCOPE,
     SLIDES_READONLY_SCOPE,
     TASKS_SCOPE,
     TASKS_READONLY_SCOPE,
-    CUSTOM_SEARCH_SCOPE,
-    SCRIPT_PROJECTS_SCOPE,
-    SCRIPT_PROJECTS_READONLY_SCOPE,
-    SCRIPT_DEPLOYMENTS_SCOPE,
-    SCRIPT_DEPLOYMENTS_READONLY_SCOPE,
     has_required_scopes,
 )
 
@@ -395,13 +388,10 @@ def _remove_user_email_arg_from_docstring(docstring: str) -> str:
 SERVICE_CONFIGS = {
     "gmail": {"service": "gmail", "version": "v1"},
     "drive": {"service": "drive", "version": "v3"},
-    "calendar": {"service": "calendar", "version": "v3"},
     "docs": {"service": "docs", "version": "v1"},
     "sheets": {"service": "sheets", "version": "v4"},
     "slides": {"service": "slides", "version": "v1"},
     "tasks": {"service": "tasks", "version": "v1"},
-    "customsearch": {"service": "customsearch", "version": "v1"},
-    "script": {"service": "script", "version": "v1"},
 }
 
 
@@ -421,9 +411,6 @@ SCOPE_GROUPS = {
     # Docs scopes
     "docs_read": DOCS_READONLY_SCOPE,
     "docs_write": DOCS_WRITE_SCOPE,
-    # Calendar scopes
-    "calendar_read": CALENDAR_READONLY_SCOPE,
-    "calendar_events": CALENDAR_EVENTS_SCOPE,
     # Sheets scopes
     "sheets_read": SHEETS_READONLY_SCOPE,
     "sheets_write": SHEETS_WRITE_SCOPE,
@@ -433,13 +420,6 @@ SCOPE_GROUPS = {
     # Tasks scopes
     "tasks": TASKS_SCOPE,
     "tasks_read": TASKS_READONLY_SCOPE,
-    # Custom Search scope
-    "customsearch": CUSTOM_SEARCH_SCOPE,
-    # Apps Script scopes
-    "script_readonly": SCRIPT_PROJECTS_READONLY_SCOPE,
-    "script_projects": SCRIPT_PROJECTS_SCOPE,
-    "script_deployments": SCRIPT_DEPLOYMENTS_SCOPE,
-    "script_deployments_readonly": SCRIPT_DEPLOYMENTS_READONLY_SCOPE,
 }
 
 

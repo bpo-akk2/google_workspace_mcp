@@ -10,7 +10,7 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/workspace-mcp?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/workspace-mcp)
 [![Website](https://img.shields.io/badge/Website-workspacemcp.com-green.svg)](https://workspacemcp.com)
 
-*Full natural language control over Google Calendar, Drive, Gmail, Docs, Sheets, Slides, Forms, Tasks, Contacts, and Chat through all MCP clients, AI assistants and developer tools. Includes a full featured CLI for use with tools like Claude Code and Codex!*
+*Full natural language control over Google Drive, Gmail, Docs, Sheets, Slides and Tasks through all MCP clients, AI assistants and developer tools. Includes a full featured CLI for use with tools like Claude Code and Codex!*
 
 **The most feature-complete Google Workspace MCP server**, with Remote OAuth2.1 multi-user support and 1-click Claude installation. With native OAuth 2.1, stateless mode and external auth server support, it's the only Workspace MCP you can host for your whole organization centrally & securely!
 
@@ -59,9 +59,8 @@ A production-ready MCP server that integrates all major Google Workspace service
 <tr>
 <td width="50%" valign="top">
 
-**<span style="color:#72898f">@</span> Gmail** • **<span style="color:#72898f">≡</span> Drive** • **<span style="color:#72898f">⧖</span> Calendar** **<span style="color:#72898f">≡</span> Docs**
+**<span style="color:#72898f">@</span> Gmail** • **<span style="color:#72898f">≡</span> Drive** • **<span style="color:#72898f">≡</span> Docs**
 - Complete Gmail management, end-to-end coverage
-- Full calendar management with advanced features
 - File operations with Office format support
 - Document creation, editing & comments
 - Deep, exhaustive support for fine-grained editing
@@ -73,15 +72,6 @@ A production-ready MCP server that integrates all major Google Workspace service
 - Space management & messaging capabilities
 - Spreadsheet operations with flexible cell management
 - Presentation creation, updates & content manipulation
-
----
-
-**<span style="color:#72898f">◆</span> Apps Script**
-- Automate cross-application workflows with custom code
-- Execute existing business logic and custom functions
-- Manage script projects, deployments & versions
-- Debug and modify Apps Script code programmatically
-- Bridge Google Workspace services through automation
 
 </td>
 <td width="50%" valign="top">
@@ -95,10 +85,9 @@ A production-ready MCP server that integrates all major Google Workspace service
 
 ---
 
-**<span style="color:#72898f">✓</span> Tasks** • **<span style="color:#72898f">👤</span> Contacts** • **<span style="color:#72898f">◆</span> Custom Search**
+**<span style="color:#72898f">✓</span> Tasks** • **<span style="color:#72898f">👤</span> Contacts**
 - Task & task list management with hierarchy
 - Contact management via People API with groups
-- Programmable Search Engine (PSE) integration
 
 </td>
 </tr>
@@ -165,8 +154,6 @@ uv run main.py --tools gmail drive
 | Variable | Purpose |
 |----------|---------|
 | `USER_GOOGLE_EMAIL` | Default email for single-user auth |
-| `GOOGLE_PSE_API_KEY` | API key for Custom Search |
-| `GOOGLE_PSE_ENGINE_ID` | Search Engine ID for Custom Search |
 | `MCP_ENABLE_OAUTH21` | Set to `true` for OAuth 2.1 support |
 | `EXTERNAL_OAUTH21_PROVIDER` | Set to `true` for external OAuth flow with bearer tokens (requires OAuth 2.1) |
 | `WORKSPACE_MCP_STATELESS_MODE` | Set to `true` for stateless operation (requires OAuth 2.1) |
@@ -240,10 +227,8 @@ APIs & Services → Credentials
 APIs & Services → Library
 
 Search & enable:
-Calendar, Drive, Gmail,
-Docs, Sheets, Slides,
-Forms, Tasks, People,
-Chat, Search
+Drive, Gmail, Docs,
+Sheets, Slides, Tasks
 ```
 <sub>See quick links below</sub>
 
@@ -286,7 +271,6 @@ Chat, Search
   <summary><b>Quick API Enable Links</b> <sub><sup>← One-click enable each Google API</sup></sub></summary>
   You can enable each one by clicking the links below (make sure you're logged into the Google Cloud Console and have the correct project selected):
 
-* [Enable Google Calendar API](https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com)
 * [Enable Google Drive API](https://console.cloud.google.com/flows/enableapi?apiid=drive.googleapis.com)
 * [Enable Gmail API](https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com)
 * [Enable Google Docs API](https://console.cloud.google.com/flows/enableapi?apiid=docs.googleapis.com)
@@ -296,8 +280,6 @@ Chat, Search
 * [Enable Google Tasks API](https://console.cloud.google.com/flows/enableapi?apiid=tasks.googleapis.com)
 * [Enable Google Chat API](https://console.cloud.google.com/flows/enableapi?apiid=chat.googleapis.com)
 * [Enable Google People API](https://console.cloud.google.com/flows/enableapi?apiid=people.googleapis.com)
-* [Enable Google Custom Search API](https://console.cloud.google.com/flows/enableapi?apiid=customsearch.googleapis.com)
-* [Enable Google Apps Script API](https://console.cloud.google.com/flows/enableapi?apiid=script.googleapis.com)
 
 </details>
 
@@ -329,16 +311,6 @@ export USER_GOOGLE_EMAIL=\
   your.email@gmail.com
 ```
 <sub>Single-user authentication</sub>
-
-</td>
-<td width="34%" align="center">
-
-**◆ Custom Search**
-```bash
-export GOOGLE_PSE_API_KEY=xxx
-export GOOGLE_PSE_ENGINE_ID=yyy
-```
-<sub>Optional: Search API setup</sub>
 
 </td>
 </tr>
@@ -405,86 +377,6 @@ export USER_GOOGLE_EMAIL=\
 
 </details>
 
-### Google Custom Search Setup
-
-<details>
-<summary>◆ <b>Custom Search Configuration</b> <sub><sup>← Enable web search capabilities</sup></sub></summary>
-
-<table>
-<tr>
-<td width="33%" align="center">
-
-**1. Create Search Engine**
-```text
-programmablesearchengine.google.com
-/controlpanel/create
-
-→ Configure sites or entire web
-→ Note your Engine ID (cx)
-```
-<sub>[Open Control Panel →](https://programmablesearchengine.google.com/controlpanel/create)</sub>
-
-</td>
-<td width="33%" align="center">
-
-**2. Get API Key**
-```text
-developers.google.com
-/custom-search/v1/overview
-
-→ Create/select project
-→ Enable Custom Search API
-→ Create credentials (API Key)
-```
-<sub>[Get API Key →](https://developers.google.com/custom-search/v1/overview)</sub>
-
-</td>
-<td width="34%" align="center">
-
-**3. Set Variables**
-```bash
-export GOOGLE_PSE_API_KEY=\
-  "your-api-key"
-export GOOGLE_PSE_ENGINE_ID=\
-  "your-engine-id"
-```
-<sub>Configure in environment</sub>
-
-</td>
-</tr>
-<tr>
-<td colspan="3">
-
-<details>
-<summary>≡ <b>Quick Setup Guide</b> <sub><sup>← Step-by-step instructions</sup></sub></summary>
-
-**Complete Setup Process:**
-
-1. **Create Search Engine** - Visit the [Control Panel](https://programmablesearchengine.google.com/controlpanel/create)
-   - Choose "Search the entire web" or specify sites
-   - Copy the Search Engine ID (looks like: `017643444788157684527:6ivsjbpxpqw`)
-
-2. **Enable API & Get Key** - Visit [Google Developers Console](https://console.cloud.google.com/)
-   - Enable "Custom Search API" in your project
-   - Create credentials → API Key
-   - Restrict key to Custom Search API (recommended)
-
-3. **Configure Environment** - Add to your shell or `.env`:
-   ```bash
-   export GOOGLE_PSE_API_KEY="AIzaSy..."
-   export GOOGLE_PSE_ENGINE_ID="01764344478..."
-   ```
-
-≡ [Full Documentation →](https://developers.google.com/custom-search/v1/overview)
-
-</details>
-
-</td>
-</tr>
-</table>
-
-</details>
-
 ### Start the Server
 
 > **📌 Transport Mode Guidance**: Use **streamable HTTP mode** (`--transport streamable-http`) for all modern MCP clients including Claude Code, VS Code MCP, and MCP Inspector. Stdio mode is only for clients with incomplete MCP specification support.
@@ -534,7 +426,7 @@ uv run main.py \
 **▶ Selective Tool Loading**
 ```bash
 # Load specific services only
-uv run main.py --tools gmail drive calendar
+uv run main.py --tools gmail drive tasks
 uv run main.py --tools sheets docs
 
 # Combine with other flags
@@ -588,10 +480,10 @@ docker run -p 8000:8000 -v $(pwd):/app \
 
 # With tool selection via environment variables
 docker run -e TOOL_TIER=core workspace-mcp
-docker run -e TOOLS="gmail drive calendar" workspace-mcp
+docker run -e TOOLS="gmail drive tasks" workspace-mcp
 ```
 
-**Available Services**: `gmail` • `drive` • `calendar` • `docs` • `sheets` • `forms` • `tasks` • `contacts` • `chat` • `search`
+**Available Services**: `gmail` • `drive` • `docs` • `sheets` • `slides` • `tasks`
 
 </details>
 
@@ -685,8 +577,8 @@ workspace-mcp --cli list | grep gmail
 # Search for unread emails
 workspace-mcp --cli search_gmail_messages --args '{"query": "is:unread", "max_results": 5}'
 
-# Get calendar events for today
-workspace-mcp --cli get_events --args '{"calendar_id": "primary", "time_min": "2024-01-15T00:00:00Z"}'
+# List your Google Tasks lists
+workspace-mcp --cli list_task_lists
 
 # Create a Drive file from a URL
 workspace-mcp --cli create_drive_file --args '{"name": "doc.pdf", "source_url": "https://example.com/file.pdf"}'
@@ -835,17 +727,6 @@ cp .env.oauth21 .env
 
 <table width="100%">
 <tr>
-<td width="50%" valign="top">
-
-### 📅 **Google Calendar** <sub>[`calendar_tools.py`](gcalendar/calendar_tools.py)</sub>
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `list_calendars` | **Core** | List accessible calendars |
-| `get_events` | **Core** | Retrieve events with time range filtering |
-| `manage_event` | **Core** | Create, update, or delete calendar events |
-
-</td>
 <td width="50%" valign="top">
 
 ### 📁 **Google Drive** <sub>[`drive_tools.py`](gdrive/drive_tools.py)</sub>
@@ -1062,35 +943,6 @@ Saved files expire after 1 hour and are cleaned up automatically.
 | `download_chat_attachment` | Extended | Download attachment from a chat message |
 
 </td>
-<td width="50%" valign="top">
-
-### 🔍 **Google Custom Search** <sub>[`search_tools.py`](gsearch/search_tools.py)</sub>
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `search_custom` | **Core** | Perform web searches (supports site restrictions via sites parameter) |
-| `get_search_engine_info` | Complete | Retrieve search engine metadata |
-
-</td>
-</tr>
-<tr>
-<td colspan="2" valign="top">
-
-### **Google Apps Script** <sub>[`apps_script_tools.py`](gappsscript/apps_script_tools.py)</sub>
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `list_script_projects` | **Core** | List accessible Apps Script projects |
-| `get_script_project` | **Core** | Get complete project with all files |
-| `get_script_content` | **Core** | Retrieve specific file content |
-| `create_script_project` | **Core** | Create new standalone or bound project |
-| `update_script_content` | **Core** | Update or create script files |
-| `run_script_function` | **Core** | Execute function with parameters |
-| `list_deployments` | Extended | List all project deployments |
-| `manage_deployment` | Extended | Create, update, or delete script deployments |
-| `list_script_processes` | Extended | View recent executions and status |
-
-</td>
 </tr>
 </table>
 
@@ -1173,7 +1025,7 @@ If you’re developing, deploying to servers, or using another MCP-capable clien
 ```bash
 # Requires Python 3.10+ and uvx
 # First, set credentials (see Credential Configuration above)
-uvx workspace-mcp --tool-tier core  # or --tools gmail drive calendar
+uvx workspace-mcp --tool-tier core  # or --tools gmail drive tasks
 ```
 
 > **Note**: Configure [OAuth credentials](#credential-configuration) before running. Supports environment variables, `.env` file, or `client_secret.json`.
@@ -1441,7 +1293,7 @@ You also have options for:
 # Configure credentials first (see Credential Configuration section)
 
 # Start with specific tools only
-uvx workspace-mcp --tools gmail drive calendar tasks
+uvx workspace-mcp --tools gmail drive tasks
 
 # Start with tool tiers (recommended for most users)
 uvx workspace-mcp --tool-tier core      # Essential tools

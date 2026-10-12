@@ -16,9 +16,6 @@ _ENABLED_TOOLS = None
 USERINFO_EMAIL_SCOPE = "https://www.googleapis.com/auth/userinfo.email"
 USERINFO_PROFILE_SCOPE = "https://www.googleapis.com/auth/userinfo.profile"
 OPENID_SCOPE = "openid"
-CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
-CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
-CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 
 # Google Drive scopes
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
@@ -49,21 +46,6 @@ SLIDES_READONLY_SCOPE = "https://www.googleapis.com/auth/presentations.readonly"
 TASKS_SCOPE = "https://www.googleapis.com/auth/tasks"
 TASKS_READONLY_SCOPE = "https://www.googleapis.com/auth/tasks.readonly"
 
-# Google Custom Search API scope
-CUSTOM_SEARCH_SCOPE = "https://www.googleapis.com/auth/cse"
-
-# Google Apps Script API scopes
-SCRIPT_PROJECTS_SCOPE = "https://www.googleapis.com/auth/script.projects"
-SCRIPT_PROJECTS_READONLY_SCOPE = (
-    "https://www.googleapis.com/auth/script.projects.readonly"
-)
-SCRIPT_DEPLOYMENTS_SCOPE = "https://www.googleapis.com/auth/script.deployments"
-SCRIPT_DEPLOYMENTS_READONLY_SCOPE = (
-    "https://www.googleapis.com/auth/script.deployments.readonly"
-)
-SCRIPT_PROCESSES_READONLY_SCOPE = "https://www.googleapis.com/auth/script.processes"
-SCRIPT_METRICS_SCOPE = "https://www.googleapis.com/auth/script.metrics"
-
 # Google scope hierarchy: broader scopes that implicitly cover narrower ones.
 # See https://developers.google.com/gmail/api/auth/scopes,
 # https://developers.google.com/drive/api/guides/api-specific-auth, etc.
@@ -75,13 +57,10 @@ SCOPE_HIERARCHY = {
         GMAIL_LABELS_SCOPE,
     },
     DRIVE_SCOPE: {DRIVE_READONLY_SCOPE, DRIVE_FILE_SCOPE},
-    CALENDAR_SCOPE: {CALENDAR_READONLY_SCOPE, CALENDAR_EVENTS_SCOPE},
     DOCS_WRITE_SCOPE: {DOCS_READONLY_SCOPE},
     SHEETS_WRITE_SCOPE: {SHEETS_READONLY_SCOPE},
     SLIDES_SCOPE: {SLIDES_READONLY_SCOPE},
     TASKS_SCOPE: {TASKS_READONLY_SCOPE},
-    SCRIPT_PROJECTS_SCOPE: {SCRIPT_PROJECTS_READONLY_SCOPE},
-    SCRIPT_DEPLOYMENTS_SCOPE: {SCRIPT_DEPLOYMENTS_READONLY_SCOPE},
 }
 
 
@@ -118,8 +97,6 @@ DOCS_SCOPES = [
     DRIVE_FILE_SCOPE,
 ]
 
-CALENDAR_SCOPES = [CALENDAR_SCOPE, CALENDAR_READONLY_SCOPE, CALENDAR_EVENTS_SCOPE]
-
 DRIVE_SCOPES = [DRIVE_SCOPE, DRIVE_READONLY_SCOPE, DRIVE_FILE_SCOPE]
 
 GMAIL_SCOPES = [
@@ -137,48 +114,24 @@ SLIDES_SCOPES = [SLIDES_SCOPE, SLIDES_READONLY_SCOPE]
 
 TASKS_SCOPES = [TASKS_SCOPE, TASKS_READONLY_SCOPE]
 
-CUSTOM_SEARCH_SCOPES = [CUSTOM_SEARCH_SCOPE]
-
-SCRIPT_SCOPES = [
-    SCRIPT_PROJECTS_SCOPE,
-    SCRIPT_PROJECTS_READONLY_SCOPE,
-    SCRIPT_DEPLOYMENTS_SCOPE,
-    SCRIPT_DEPLOYMENTS_READONLY_SCOPE,
-    SCRIPT_PROCESSES_READONLY_SCOPE,  # Required for list_script_processes
-    SCRIPT_METRICS_SCOPE,  # Required for get_script_metrics
-    DRIVE_FILE_SCOPE,  # Required for list/delete script projects (uses Drive API)
-]
-
 # Tool-to-scopes mapping
 TOOL_SCOPES_MAP = {
     "gmail": GMAIL_SCOPES,
     "drive": DRIVE_SCOPES,
-    "calendar": CALENDAR_SCOPES,
     "docs": DOCS_SCOPES,
     "sheets": SHEETS_SCOPES,
     "slides": SLIDES_SCOPES,
     "tasks": TASKS_SCOPES,
-    "search": CUSTOM_SEARCH_SCOPES,
-    "appscript": SCRIPT_SCOPES,
 }
 
 # Tool-to-read-only-scopes mapping
 TOOL_READONLY_SCOPES_MAP = {
     "gmail": [GMAIL_READONLY_SCOPE],
     "drive": [DRIVE_READONLY_SCOPE],
-    "calendar": [CALENDAR_READONLY_SCOPE],
     "docs": [DOCS_READONLY_SCOPE, DRIVE_READONLY_SCOPE],
     "sheets": [SHEETS_READONLY_SCOPE, DRIVE_READONLY_SCOPE],
     "slides": [SLIDES_READONLY_SCOPE],
     "tasks": [TASKS_READONLY_SCOPE],
-    "search": CUSTOM_SEARCH_SCOPES,
-    "appscript": [
-        SCRIPT_PROJECTS_READONLY_SCOPE,
-        SCRIPT_DEPLOYMENTS_READONLY_SCOPE,
-        SCRIPT_PROCESSES_READONLY_SCOPE,
-        SCRIPT_METRICS_SCOPE,
-        DRIVE_READONLY_SCOPE,
-    ],
 }
 
 

@@ -6,7 +6,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/workspace-mcp.svg)](https://pypi.org/project/workspace-mcp/)
 
-**Complete Google Workspace control through natural language.** Gmail, Calendar, Drive, Docs, Sheets, Slides, Forms, Tasks, Chat, Apps Script, and Custom Search—all via MCP.
+**Complete Google Workspace control through natural language.** Gmail, Drive, Docs, Sheets, Slides and Tasks, all via MCP.
 
 [Quick Start](#-quick-start) • [Tools Reference](#-tools-reference) • [Configuration](#-configuration) • [OAuth Setup](#-oauth-setup)
 
@@ -29,7 +29,7 @@
 uvx workspace-mcp
 
 # With specific tools only
-uvx workspace-mcp --tools gmail drive calendar
+uvx workspace-mcp --tools gmail drive tasks
 
 # With tool tier
 uvx workspace-mcp --tool-tier core
@@ -84,16 +84,6 @@ export OAUTHLIB_INSECURE_TRANSPORT=1  # Development only
 | `set_drive_file_permissions` | Extended | Set link sharing and file-level sharing settings |
 | `get_drive_file_permissions` | Complete | Get detailed file permissions |
 | `check_drive_file_public_access` | Complete | Verify public link sharing for Docs image insertion |
-
-### Google Calendar (3 tools)
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `list_calendars` | Core | List all accessible calendars |
-| `get_events` | Core | Query events by time range, search, or specific ID |
-| `manage_event` | Core | Create, update, or delete calendar events |
-
-**Event features:** Timezone support, transparency (busy/free), visibility settings, up to 5 custom reminders, Google Meet integration, attendees, attachments
 
 ### Google Docs (14 tools)
 
@@ -167,24 +157,6 @@ export OAUTHLIB_INSECURE_TRANSPORT=1  # Development only
 | `get_task_list` | Complete | Get task list details |
 | `manage_task_list` | Complete | Create, update, delete task lists, or clear completed tasks |
 
-### Google Apps Script (9 tools)
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `list_script_projects` | Core | List accessible Apps Script projects |
-| `get_script_project` | Core | Get complete project with all files |
-| `get_script_content` | Core | Retrieve specific file content |
-| `create_script_project` | Core | Create new standalone or bound project |
-| `update_script_content` | Core | Update or create script files |
-| `run_script_function` | Core | Execute function with parameters |
-| `list_deployments` | Extended | List all project deployments |
-| `manage_deployment` | Extended | Create, update, or delete script deployments |
-| `list_script_processes` | Extended | View recent executions and status |
-
-**Enables:** Cross-app automation, persistent workflows, custom business logic execution, script development and debugging
-
-**Note:** Trigger management is not currently supported via MCP tools.
-
 ### Google Contacts (7 tools)
 
 | Tool | Tier | Description |
@@ -206,15 +178,6 @@ export OAUTHLIB_INSECURE_TRANSPORT=1  # Development only
 | `send_message` | Core | Send messages with optional threading |
 | `search_messages` | Core | Search across chat history |
 | `list_spaces` | Extended | List rooms and DMs |
-
-### Google Custom Search (2 tools)
-
-| Tool | Tier | Description |
-|------|------|-------------|
-| `search_custom` | Core | Web search with filters (date, file type, language, safe search, site restrictions via sites parameter) |
-| `get_search_engine_info` | Complete | Get search engine metadata |
-
-**Requires:** `GOOGLE_PSE_API_KEY` and `GOOGLE_PSE_ENGINE_ID` environment variables
 
 ---
 
@@ -255,8 +218,6 @@ uvx workspace-mcp --tools gmail drive --tool-tier extended
 | Variable | Description |
 |----------|-------------|
 | `USER_GOOGLE_EMAIL` | Default email for single-user mode |
-| `GOOGLE_PSE_API_KEY` | Custom Search API key |
-| `GOOGLE_PSE_ENGINE_ID` | Programmable Search Engine ID |
 | `MCP_ENABLE_OAUTH21` | Enable OAuth 2.1 multi-user support |
 | `WORKSPACE_MCP_STATELESS_MODE` | No file writes (container-friendly) |
 | `EXTERNAL_OAUTH21_PROVIDER` | External OAuth flow with bearer tokens |
@@ -282,7 +243,6 @@ uvx workspace-mcp --tools gmail drive --tool-tier extended
 
 Click to enable each API:
 
-- [Calendar](https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com)
 - [Drive](https://console.cloud.google.com/flows/enableapi?apiid=drive.googleapis.com)
 - [Gmail](https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com)
 - [Docs](https://console.cloud.google.com/flows/enableapi?apiid=docs.googleapis.com)
@@ -291,7 +251,6 @@ Click to enable each API:
 - [Forms](https://console.cloud.google.com/flows/enableapi?apiid=forms.googleapis.com)
 - [Tasks](https://console.cloud.google.com/flows/enableapi?apiid=tasks.googleapis.com)
 - [Chat](https://console.cloud.google.com/flows/enableapi?apiid=chat.googleapis.com)
-- [Custom Search](https://console.cloud.google.com/flows/enableapi?apiid=customsearch.googleapis.com)
 
 ### 3. First Authentication
 
@@ -401,13 +360,11 @@ claude mcp add --transport http workspace-mcp http://localhost:8000/mcp
 google_workspace_mcp/
 ├── auth/                 # OAuth 2.0/2.1, credential storage, decorators
 ├── core/                 # MCP server, tool registry, utilities
-├── gcalendar/           # Calendar tools
 ├── gchat/               # Chat tools
 ├── gdocs/               # Docs tools + managers (tables, headers, batch)
 ├── gdrive/              # Drive tools + helpers
 ├── gforms/              # Forms tools
 ├── gmail/               # Gmail tools
-├── gsearch/             # Custom Search tools
 ├── gsheets/             # Sheets tools + helpers
 ├── gslides/             # Slides tools
 ├── gtasks/              # Tasks tools

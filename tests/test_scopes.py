@@ -13,8 +13,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from auth.scopes import (
     BASE_SCOPES,
-    CALENDAR_READONLY_SCOPE,
-    CALENDAR_SCOPE,
     DRIVE_FILE_SCOPE,
     DRIVE_READONLY_SCOPE,
     DRIVE_SCOPE,
@@ -26,6 +24,8 @@ from auth.scopes import (
     GMAIL_SETTINGS_BASIC_SCOPE,
     SHEETS_READONLY_SCOPE,
     SHEETS_WRITE_SCOPE,
+    TASKS_READONLY_SCOPE,
+    TASKS_SCOPE,
     get_scopes_for_tools,
     has_required_scopes,
     set_read_only,
@@ -175,8 +175,8 @@ class TestHasRequiredScopes:
         assert not has_required_scopes([DRIVE_READONLY_SCOPE], [DRIVE_SCOPE])
 
     # Other hierarchies
-    def test_calendar_covers_readonly(self):
-        assert has_required_scopes([CALENDAR_SCOPE], [CALENDAR_READONLY_SCOPE])
+    def test_tasks_covers_readonly(self):
+        assert has_required_scopes([TASKS_SCOPE], [TASKS_READONLY_SCOPE])
 
     def test_sheets_write_covers_readonly(self):
         assert has_required_scopes([SHEETS_WRITE_SCOPE], [SHEETS_READONLY_SCOPE])
@@ -208,7 +208,7 @@ class TestGranularPermissionsScopes:
 
     def test_permissions_mode_returns_base_plus_permission_scopes(self):
         set_permissions({"gmail": "send", "drive": "readonly"})
-        scopes = get_scopes_for_tools(["calendar"])  # ignored in permissions mode
+        scopes = get_scopes_for_tools(["tasks"])  # ignored in permissions mode
 
         expected = set(BASE_SCOPES)
         expected.update(get_scopes_for_permission("gmail", "send"))

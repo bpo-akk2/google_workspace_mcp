@@ -45,18 +45,10 @@ startCommand:
         type: boolean
         default: false
         description: "Enable insecure transport for development environments"
-      googlePseApiKey:
-        type: string
-        default: ""
-        description: "API key for Google Custom Search - required for search tools"
-      googlePseEngineId:
-        type: string
-        default: ""
-        description: "Programmable Search Engine ID for Custom Search - required for search tools"
       tools:
         type: string
         default: ""
-        description: "Comma-separated list of tools to enable (gmail,drive,calendar,docs,sheets,chat,forms,slides,tasks,search). Leave empty for all tools."
+        description: "Comma-separated list of tools to enable (gmail,drive,docs,sheets,slides,tasks). Leave empty for all tools."
       workspaceMcpStatelessMode:
         type: boolean
         default: true
@@ -93,9 +85,7 @@ startCommand:
           ...(config.mcpSingleUserMode && { MCP_SINGLE_USER_MODE: '1' }),
           ...(config.mcpEnableOauth21 && { MCP_ENABLE_OAUTH21: 'true' }),
           ...(config.workspaceMcpStatelessMode && { WORKSPACE_MCP_STATELESS_MODE: 'true' }),
-          ...(config.oauthlibInsecureTransport && { OAUTHLIB_INSECURE_TRANSPORT: '1' }),
-          ...(config.googlePseApiKey && { GOOGLE_PSE_API_KEY: config.googlePseApiKey }),
-          ...(config.googlePseEngineId && { GOOGLE_PSE_ENGINE_ID: config.googlePseEngineId })
+          ...(config.oauthlibInsecureTransport && { OAUTHLIB_INSECURE_TRANSPORT: '1' })
         }
       };
     }

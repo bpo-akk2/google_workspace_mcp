@@ -89,10 +89,6 @@ env:
   
   # Development only - set to "1" for local development
   OAUTHLIB_INSECURE_TRANSPORT: "0"
-  
-  # Optional: Google Custom Search
-  # GOOGLE_PSE_API_KEY: ""
-  # GOOGLE_PSE_ENGINE_ID: ""
 
 # Secret configuration for sensitive data
 secrets:
@@ -107,8 +103,8 @@ secrets:
 # Tool selection - specify which Google Workspace tools to enable
 tools:
   enabled: []
-  # Available tools: gmail, drive, calendar, docs, sheets, chat, forms, slides, tasks, search
-  # Example: ["gmail", "drive", "calendar"]
+  # Available tools: gmail, drive, docs, sheets, slides, tasks
+  # Example: ["gmail", "drive", "tasks"]
   # Leave empty to enable all tools
 
 # Tool tier selection - alternative to specifying individual tools

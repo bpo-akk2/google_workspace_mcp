@@ -60,14 +60,12 @@ class EnhancedLogFormatter(logging.Formatter):
             "core.utils": "[UTILS]",
             "auth.google_auth": "[OAUTH]",
             "auth.credential_store": "[CREDS]",
-            "gcalendar.calendar_tools": "[CALENDAR]",
             "gdrive.drive_tools": "[DRIVE]",
             "gmail.gmail_tools": "[GMAIL]",
             "gdocs.docs_tools": "[DOCS]",
             "gsheets.sheets_tools": "[SHEETS]",
             "gslides.slides_tools": "[SLIDES]",
             "gtasks.tasks_tools": "[TASKS]",
-            "gsearch.search_tools": "[SEARCH]",
         }
 
         return ascii_prefixes.get(logger_name, f"[{level_name}]")

@@ -2,8 +2,8 @@
 Unit tests for Google Drive MCP tools.
 
 Tests create_drive_folder with mocked API responses, plus coverage for
-`search_drive_files` and `list_drive_items` pagination, `detailed` output,
-and `file_type` filtering behaviors.
+`list_drive_items` pagination, `detailed` output, and `file_type` filtering
+behaviors.
 """
 
 import pytest
@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from gdrive.drive_helpers import build_drive_list_params
-from gdrive.drive_tools import list_drive_items, search_drive_files
+from gdrive.drive_tools import list_drive_items
 
 
 def _unwrap(tool):
@@ -27,90 +27,6 @@ def _unwrap(tool):
     while hasattr(fn, "__wrapped__"):
         fn = fn.__wrapped__
     return fn
-
-
-# ---------------------------------------------------------------------------
-# search_drive_files — page_token
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_search_drive_files_page_token_passed_to_api():
-    """page_token is forwarded to the Drive API as pageToken."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            {
-                "id": "f1",
-                "name": "Report.pdf",
-                "mimeType": "application/pdf",
-                "webViewLink": "https://drive.google.com/file/f1",
-                "modifiedTime": "2024-01-01T00:00:00Z",
-            }
-        ]
-    }
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="budget",
-        page_token="tok_abc123",
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert call_kwargs.get("pageToken") == "tok_abc123"
-
-
-@pytest.mark.asyncio
-async def test_search_drive_files_next_page_token_in_output():
-    """nextPageToken from the API response is appended at the end of the output."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            {
-                "id": "f2",
-                "name": "Notes.docx",
-                "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "webViewLink": "https://drive.google.com/file/f2",
-                "modifiedTime": "2024-02-01T00:00:00Z",
-            }
-        ],
-        "nextPageToken": "next_tok_xyz",
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="notes",
-    )
-
-    assert result.endswith("nextPageToken: next_tok_xyz")
-
-
-@pytest.mark.asyncio
-async def test_search_drive_files_no_next_page_token_when_absent():
-    """nextPageToken does not appear in output when the API has no more pages."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            {
-                "id": "f3",
-                "name": "Summary.txt",
-                "mimeType": "text/plain",
-                "webViewLink": "https://drive.google.com/file/f3",
-                "modifiedTime": "2024-03-01T00:00:00Z",
-            }
-        ]
-        # no nextPageToken key
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="summary",
-    )
-
-    assert "nextPageToken" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -300,156 +216,6 @@ def test_build_params_default_is_detailed():
 
 
 # ---------------------------------------------------------------------------
-# search_drive_files — detailed flag
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_search_detailed_true_output_includes_metadata():
-    """detailed=True (default) includes modified time and link in output."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            _make_file(
-                "f1",
-                "My Doc",
-                "application/vnd.google-apps.document",
-                modified="2024-06-01T12:00:00Z",
-                link="http://link/f1",
-            )
-        ]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="my doc",
-        detailed=True,
-    )
-
-    assert "My Doc" in result
-    assert "2024-06-01T12:00:00Z" in result
-    assert "http://link/f1" in result
-
-
-@pytest.mark.asyncio
-async def test_search_detailed_false_output_excludes_metadata():
-    """detailed=False omits modified time and link from output."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            _make_file(
-                "f1",
-                "My Doc",
-                "application/vnd.google-apps.document",
-                modified="2024-06-01T12:00:00Z",
-                link="http://link/f1",
-            )
-        ]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="my doc",
-        detailed=False,
-    )
-
-    assert "My Doc" in result
-    assert "f1" in result
-    assert "2024-06-01T12:00:00Z" not in result
-    assert "http://link/f1" not in result
-
-
-@pytest.mark.asyncio
-async def test_search_detailed_true_with_size():
-    """When the item has a size field, detailed=True includes it in output."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            _make_file("f2", "Big File", "application/pdf", size="102400"),
-        ]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="big",
-        detailed=True,
-    )
-
-    assert "102400" in result
-
-
-@pytest.mark.asyncio
-async def test_search_detailed_true_requests_extra_api_fields():
-    """detailed=True passes full fields string to the Drive API."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="anything",
-        detailed=True,
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "modifiedTime" in call_kwargs["fields"]
-    assert "webViewLink" in call_kwargs["fields"]
-    assert "size" in call_kwargs["fields"]
-
-
-@pytest.mark.asyncio
-async def test_search_detailed_false_requests_compact_api_fields():
-    """detailed=False passes compact fields string to the Drive API."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="anything",
-        detailed=False,
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "modifiedTime" not in call_kwargs["fields"]
-    assert "webViewLink" not in call_kwargs["fields"]
-    assert "size" not in call_kwargs["fields"]
-
-
-@pytest.mark.asyncio
-async def test_search_default_detailed_matches_detailed_true():
-    """Omitting detailed produces the same output as detailed=True."""
-    file = _make_file(
-        "f1",
-        "Doc",
-        "application/vnd.google-apps.document",
-        modified="2024-01-01T00:00:00Z",
-        link="http://l",
-    )
-
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": [file]}
-    result_default = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="doc",
-    )
-
-    mock_service.files().list().execute.return_value = {"files": [file]}
-    result_true = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="doc",
-        detailed=True,
-    )
-
-    assert result_default == result_true
-
-
-# ---------------------------------------------------------------------------
 # list_drive_items — detailed flag
 # ---------------------------------------------------------------------------
 
@@ -585,42 +351,6 @@ async def test_list_detailed_false_requests_compact_api_fields(mock_resolve_fold
 
 
 @pytest.mark.asyncio
-async def test_search_free_text_returns_results():
-    """Free-text query is wrapped in fullText contains and results are formatted."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            _make_file("f1", "My Doc", "application/vnd.google-apps.document"),
-        ]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="my doc",
-    )
-
-    assert "Found 1 files" in result
-    assert "My Doc" in result
-    assert "f1" in result
-
-
-@pytest.mark.asyncio
-async def test_search_no_results():
-    """No results returns a clear message."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="nothing here",
-    )
-
-    assert "No files found" in result
-
-
-@pytest.mark.asyncio
 @patch("gdrive.drive_tools.resolve_folder_id", new_callable=AsyncMock)
 async def test_list_items_basic(mock_resolve_folder):
     """Basic listing without filters returns all items."""
@@ -664,151 +394,6 @@ async def test_list_items_no_results(mock_resolve_folder):
 # ---------------------------------------------------------------------------
 # file_type filtering
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_folder_adds_mime_filter():
-    """file_type='folder' appends the folder MIME type to the query."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [
-            _make_file("fold1", "My Folder", "application/vnd.google-apps.folder")
-        ]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="my",
-        file_type="folder",
-    )
-
-    assert "Found 1 files" in result
-    assert "My Folder" in result
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType = 'application/vnd.google-apps.folder'" in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_document_alias():
-    """Alias 'doc' resolves to the Google Docs MIME type."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="report",
-        file_type="doc",
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType = 'application/vnd.google-apps.document'" in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_plural_alias():
-    """Plural aliases are resolved for friendlier natural-language usage."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="project",
-        file_type="folders",
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType = 'application/vnd.google-apps.folder'" in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_sheet_alias():
-    """Alias 'sheet' resolves to the Google Sheets MIME type."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="budget",
-        file_type="sheet",
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType = 'application/vnd.google-apps.spreadsheet'" in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_raw_mime():
-    """A raw MIME type string is passed through unchanged."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {
-        "files": [_make_file("p1", "Report.pdf", "application/pdf")]
-    }
-
-    result = await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="report",
-        file_type="application/pdf",
-    )
-
-    assert "Report.pdf" in result
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType = 'application/pdf'" in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_none_no_mime_filter():
-    """When file_type is None no mimeType clause is added to the query."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="anything",
-        file_type=None,
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    assert "mimeType" not in call_kwargs["q"]
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_structured_query_combined():
-    """file_type filter is appended even when the query is already structured."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="name contains 'budget'",
-        file_type="spreadsheet",
-    )
-
-    call_kwargs = mock_service.files.return_value.list.call_args.kwargs
-    q = call_kwargs["q"]
-    assert "name contains 'budget'" in q
-    assert "mimeType = 'application/vnd.google-apps.spreadsheet'" in q
-
-
-@pytest.mark.asyncio
-async def test_search_file_type_unknown_raises_value_error():
-    """An unrecognised friendly type name raises ValueError immediately."""
-    mock_service = Mock()
-
-    with pytest.raises(ValueError, match="Unknown file_type"):
-        await _unwrap(search_drive_files)(
-            service=mock_service,
-            user_google_email="user@example.com",
-            query="something",
-            file_type="notatype",
-        )
 
 
 @pytest.mark.asyncio
@@ -909,30 +494,6 @@ async def test_list_items_file_type_unknown_raises(mock_resolve_folder):
             folder_id="root",
             file_type="unknowntype",
         )
-
-
-# ---------------------------------------------------------------------------
-# OR-precedence grouping
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_search_or_query_is_grouped_before_mime_filter():
-    """An OR structured query is wrapped in parentheses so MIME filter precedence is correct."""
-    mock_service = Mock()
-    mock_service.files().list().execute.return_value = {"files": []}
-
-    await _unwrap(search_drive_files)(
-        service=mock_service,
-        user_google_email="user@example.com",
-        query="name contains 'a' or name contains 'b'",
-        file_type="document",
-    )
-
-    q = mock_service.files.return_value.list.call_args.kwargs["q"]
-    assert q.startswith("(")
-    assert "name contains 'a' or name contains 'b'" in q
-    assert ") and mimeType = 'application/vnd.google-apps.document'" in q
 
 
 # ---------------------------------------------------------------------------

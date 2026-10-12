@@ -183,8 +183,6 @@ def main():
             "sheets",
             "slides",
             "tasks",
-            "search",
-            "appscript",
         ],
         help="Specify which tools to register. If not provided, all tools are registered.",
     )
@@ -326,8 +324,6 @@ def main():
         "sheets": lambda: import_module("gsheets.sheets_tools"),
         "slides": lambda: import_module("gslides.slides_tools"),
         "tasks": lambda: import_module("gtasks.tasks_tools"),
-        "search": lambda: import_module("gsearch.search_tools"),
-        "appscript": lambda: import_module("gappsscript.apps_script_tools"),
     }
 
     tool_icons = {
@@ -337,8 +333,6 @@ def main():
         "sheets": "📊",
         "slides": "🖼️",
         "tasks": "✓",
-        "search": "🔍",
-        "appscript": "📜",
     }
 
     # Determine which tools to import based on arguments

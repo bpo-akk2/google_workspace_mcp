@@ -39,15 +39,6 @@ drive:
     - get_drive_file_permissions
     - check_drive_file_public_access
 
-calendar:
-  core:
-    - list_calendars
-    - get_events
-    - manage_event
-  extended:
-    - query_freebusy
-  complete: []
-
 docs:
   core:
     - get_doc_content
@@ -108,30 +99,3 @@ tasks:
     - list_task_lists
     - get_task_list
     - manage_task_list
-
-search:
-  core:
-    - search_custom
-  extended: []
-  complete:
-    - get_search_engine_info
-
-appscript:
-  core:
-    - list_script_projects
-    - get_script_project
-    - get_script_content
-    - create_script_project
-    - update_script_content
-    - run_script_function
-    - generate_trigger_code
-  extended:
-    - manage_deployment
-    - list_deployments
-    - delete_script_project
-    - list_versions
-    - create_version
-    - get_version
-    - list_script_processes
-    - get_script_metrics
-  complete: []

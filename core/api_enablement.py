@@ -3,7 +3,6 @@ from typing import Dict, Optional, Tuple
 
 
 API_ENABLEMENT_LINKS: Dict[str, str] = {
-    "calendar-json.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com",
     "drive.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=drive.googleapis.com",
     "gmail.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com",
     "docs.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=docs.googleapis.com",
@@ -12,12 +11,10 @@ API_ENABLEMENT_LINKS: Dict[str, str] = {
     "forms.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=forms.googleapis.com",
     "tasks.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=tasks.googleapis.com",
     "chat.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=chat.googleapis.com",
-    "customsearch.googleapis.com": "https://console.cloud.google.com/flows/enableapi?apiid=customsearch.googleapis.com",
 }
 
 
 SERVICE_NAME_TO_API: Dict[str, str] = {
-    "Google Calendar": "calendar-json.googleapis.com",
     "Google Drive": "drive.googleapis.com",
     "Gmail": "gmail.googleapis.com",
     "Google Docs": "docs.googleapis.com",
@@ -26,12 +23,10 @@ SERVICE_NAME_TO_API: Dict[str, str] = {
     "Google Forms": "forms.googleapis.com",
     "Google Tasks": "tasks.googleapis.com",
     "Google Chat": "chat.googleapis.com",
-    "Google Custom Search": "customsearch.googleapis.com",
 }
 
 
 INTERNAL_SERVICE_TO_API: Dict[str, str] = {
-    "calendar": "calendar-json.googleapis.com",
     "drive": "drive.googleapis.com",
     "gmail": "gmail.googleapis.com",
     "docs": "docs.googleapis.com",
@@ -40,8 +35,6 @@ INTERNAL_SERVICE_TO_API: Dict[str, str] = {
     "forms": "forms.googleapis.com",
     "tasks": "tasks.googleapis.com",
     "chat": "chat.googleapis.com",
-    "customsearch": "customsearch.googleapis.com",
-    "search": "customsearch.googleapis.com",
 }
 
 

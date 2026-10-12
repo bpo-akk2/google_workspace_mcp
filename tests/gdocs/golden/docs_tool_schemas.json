@@ -1,0 +1,90 @@
+{
+  "batch_update_doc": {
+    "additionalProperties": false,
+    "properties": {
+      "document_id": {
+        "type": "string"
+      },
+      "operations": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "user_google_email": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "user_google_email",
+      "document_id",
+      "operations"
+    ],
+    "type": "object"
+  },
+  "modify_doc_text": {
+    "additionalProperties": false,
+    "properties": {
+      "background_color": {
+        "default": null,
+        "type": "string"
+      },
+      "bold": {
+        "default": null,
+        "type": "boolean"
+      },
+      "document_id": {
+        "type": "string"
+      },
+      "end_index": {
+        "default": null,
+        "type": "integer"
+      },
+      "font_family": {
+        "default": null,
+        "type": "string"
+      },
+      "font_size": {
+        "default": null,
+        "type": "integer"
+      },
+      "italic": {
+        "default": null,
+        "type": "boolean"
+      },
+      "link_url": {
+        "default": null,
+        "type": "string"
+      },
+      "start_index": {
+        "type": "integer"
+      },
+      "strikethrough": {
+        "default": null,
+        "type": "boolean"
+      },
+      "text": {
+        "default": null,
+        "type": "string"
+      },
+      "text_color": {
+        "default": null,
+        "type": "string"
+      },
+      "underline": {
+        "default": null,
+        "type": "boolean"
+      },
+      "user_google_email": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "user_google_email",
+      "document_id",
+      "start_index"
+    ],
+    "type": "object"
+  }
+}

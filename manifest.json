@@ -3,8 +3,8 @@
   "name": "workspace-mcp",
   "display_name": "Google Workspace MCP",
   "version": "1.14.3",
-  "description": "Full natural language control over Google Calendar, Drive, Gmail, Docs, Sheets, Slides, Forms, Tasks, Chat and Custom Search through all MCP clients, AI assistants and developer tools",
-  "long_description": "A production-ready MCP server that integrates all major Google Workspace services with AI assistants. Includes Google PSE integration for custom web searches.",
+  "description": "Full natural language control over Google Calendar, Drive, Gmail, Docs, Sheets, Slides, Forms, Tasks and Chat through all MCP clients, AI assistants and developer tools",
+  "long_description": "A production-ready MCP server that integrates all major Google Workspace services with AI assistants.",
   "author": {
     "name": "Taylor Wilsdon",
     "email": "taylor@taylorwilsdon.com",
@@ -35,9 +35,7 @@
         "WORKSPACE_MCP_BASE_URI": "${user_config.WORKSPACE_MCP_BASE_URI}",
         "WORKSPACE_MCP_PORT": "${user_config.WORKSPACE_MCP_PORT}",
         "WORKSPACE_EXTERNAL_URL": "${user_config.WORKSPACE_EXTERNAL_URL}",
-        "OAUTHLIB_INSECURE_TRANSPORT": "${user_config.OAUTHLIB_INSECURE_TRANSPORT}",
-        "GOOGLE_PSE_API_KEY": "${user_config.GOOGLE_PSE_API_KEY}",
-        "GOOGLE_PSE_ENGINE_ID": "${user_config.GOOGLE_PSE_ENGINE_ID}"
+        "OAUTHLIB_INSECURE_TRANSPORT": "${user_config.OAUTHLIB_INSECURE_TRANSPORT}"
       }
     }
   },
@@ -77,10 +75,6 @@
     {
       "name": "google_tasks",
       "description": "Manage Google Tasks through AI with support for task creation, management, and organization"
-    },
-    {
-      "name": "google_custom_search",
-      "description": "Perform custom web searches through AI using Google Programmable Search Engine with site-specific and filtered search capabilities"
     }
   ],
   "user_config": {
@@ -148,18 +142,6 @@
       "description": "Allow OAuth over HTTP for development (enable for development only)",
       "required": false,
       "default": true
-    },
-    "GOOGLE_PSE_API_KEY": {
-      "type": "string",
-      "title": "Google Custom Search API Key",
-      "description": "API key for Google Programmable Search Engine (Custom Search JSON API)",
-      "required": false
-    },
-    "GOOGLE_PSE_ENGINE_ID": {
-      "type": "string",
-      "title": "Google Custom Search Engine ID",
-      "description": "Programmable Search Engine ID (cx parameter) from Google Custom Search Engine Control Panel",
-      "required": false
     }
   },
   "keywords": [
@@ -176,9 +158,6 @@
     "sheets",
     "chat",
     "tasks",
-    "search",
-    "custom-search",
-    "programmable-search",
     "oauth",
     "productivity",
     "ai-assistant"
